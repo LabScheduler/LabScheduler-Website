@@ -5,8 +5,12 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Menu from "@/components/layouts/Menu";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import AuthService from "@/services/AuthService";
 
 const inter = Inter({ subsets: ["latin"] });
+
+
 
 
 
@@ -22,7 +26,15 @@ export default function RootLayout({
   const isLoginPage = pathname === "/login";
   const isNotFoundPage = pathname === "/not-found";
 
-  // Don't show header and menu on login or not found pages
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");;
+    if (!AuthService.isAuthenticated(localStorage.getItem("token") || "") && !isLoginPage) {
+      router.push("/login");
+    }
+  }, [isLoginPage, router, pathname]);
+
+
   if (isLoginPage || isNotFoundPage) {
     return (
       <html lang="en" className="h-full">

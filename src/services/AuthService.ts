@@ -26,7 +26,7 @@ interface JwtPayload {
 
 class AuthService {
     async login(authRequest: AuthRequest): Promise<DataResponse<AuthResponse>> {
-        try {
+    try {
             const response = await axios.post<DataResponse<AuthResponse>>(`${API_URL}/auth/login`, authRequest, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -80,7 +80,9 @@ class AuthService {
         return true;
     }
 
-    isAuthenticated(token: string): boolean {
+    isAuthenticated(token?: string): boolean {
+        const storedToken = token || this.getToken();
+        console.log(storedToken)
         if (token) {
             return !this.isTokenExpired(token);
         }

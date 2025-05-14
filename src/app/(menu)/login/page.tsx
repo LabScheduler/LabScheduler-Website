@@ -22,7 +22,7 @@ export default function LoginPage() {
     // Redirect if already logged in
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
-      if (token && !AuthService.isTokenExpired(token)) {
+      if (token && !AuthService.isAuthenticated()) {
         router.push('/');
       }
     }
