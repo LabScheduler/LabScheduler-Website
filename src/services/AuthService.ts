@@ -21,7 +21,7 @@ interface JwtPayload {
     authorities: string[];
     exp: number;
     iat: number;
-    id: number;
+    jti: number;
 }
 
 class AuthService {
@@ -38,7 +38,9 @@ class AuthService {
                 throw new Error("Đăng nhập không thành công!");
             }
 
-            localStorage.setItem("token", response.data.data.token);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem("token", response.data.data.token);
+            }
             return response.data;
         } catch (error) {
             throw new Error("Có lỗi xảy ra trong quá trình đăng nhập!");
@@ -46,26 +48,36 @@ class AuthService {
     }
 
     logout() {
-        localStorage.removeItem("token"); 
-        window.location.href = "/login";
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem("token"); 
+            window.location.href = "/login";
+        }
     }
 
     getToken(): string | null {
-        return localStorage.getItem("token");
-
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem("token");
+        }
+        return null;
     }
 
     getPayload(token: string): JwtPayload | null {
         if (token) {
             const payload = token.split(".")[1];
-            return JSON.parse(atob(payload)) as JwtPayload;
+            try {
+                return JSON.parse(atob(payload)) as JwtPayload;
+            } catch (error) {
+                console.error("Failed to parse token payload:", error);
+                return null;
+            }
         }
         return null;
     }
 
-    getRole(token:string): string{
-        if (token) {
-            const payload = this.getPayload(token);
+    getRole(token?:string): string{
+        const storedToken = token || this.getToken();
+        if (storedToken) {
+            const payload = this.getPayload(storedToken);
             return payload?.authorities[0] || "";
         }
         return "";
@@ -82,29 +94,30 @@ class AuthService {
 
     isAuthenticated(token?: string): boolean {
         const storedToken = token || this.getToken();
-        console.log(storedToken)
-        if (token) {
-            return !this.isTokenExpired(token);
+        if (storedToken) {
+            return !this.isTokenExpired(storedToken);
         }
         return false;
     }
 
-    getUserId(token: string): number | null {
+    getUserId(token?: string): number | null {
+        const storedToken = token || this.getToken();
         if (token) {
             const payload = this.getPayload(token);
-            return payload?.id || null;
+            console.log("payload", payload);
+            return payload?.jti || null;
         }
         return null;
     }
 
-    getUserName(token: string): string | null {
-        if (token) {
-            const payload = this.getPayload(token);
+    getUserName(token?: string): string | null {
+        const storedToken = token || this.getToken();
+        if (storedToken) {
+            const payload = this.getPayload(storedToken);
             return payload?.sub || null;
         }
         return null;
     }
-
 }
 
 export default new AuthService();
