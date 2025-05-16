@@ -1,11 +1,28 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { UserCircleIcon } from "@heroicons/react/24/outline";
+import AuthService from "@/services/AuthService";
+import { useEffect, useState } from "react";
 // import authService from "@/services/authService";
 
 const Header = () => {
-  const user = "User Name";
-  const role = "MANAGER";
+  const [user, setUser] = useState("");
+  const [role, setRole] = useState("");
+
+  useEffect(() => {
+    const token = AuthService.getToken();
+    if (token) {
+      const payload = AuthService.getPayload(token);
+      if (payload) {
+        setUser(payload.sub);
+        setRole(payload.authorities[0]);
+      }
+    }
+  }, []);
+  
+  
 
   return (
     <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30">
