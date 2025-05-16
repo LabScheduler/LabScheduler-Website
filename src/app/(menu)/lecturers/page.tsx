@@ -1,90 +1,64 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
+import UserService from "@/services/UserService";
+import DepartmentService from "@/services/DepartmentService";
+import { LecturerResponse, Department } from "@/types/TypeResponse";
+import { DataResponse } from "@/types/DataResponse";
 
+// Map LecturerResponse to local interface for compatibility
 interface Lecturer {
   id: number;
-  full_name: string;
+  fullName: string;
   email: string;
   code: string;
   phone: string;
   gender: boolean;
   birthday: string;
   department: string;
-  role: 'LECTURER';
-  status: 'ACTIVE' | 'INACTIVE';
+  role: string;
+  status: string;
 }
 
-// Sample data - replace with actual API calls later
-const initialLecturers: Lecturer[] = [
-  {
-    id: 1,
-    full_name: "Giang Vien 1",
-    email: "toanehihi.dev@gmail.com",
-    code: "LECTURER001",
-    phone: "011111111",
-    gender: true,
-    birthday: "2000-01-01",
-    department: "Khoa Công nghệ Thông tin",
-    role: "LECTURER",
-    status: "ACTIVE"
-  },
-  {
-    id: 2,
-    full_name: "Giang Vien 2",
-    email: "toanehihi1.dev@gmail.com",
-    code: "LECTURER002",
-    phone: "022222222",
-    gender: true,
-    birthday: "2000-01-01",
-    department: "Khoa Công nghệ Thông tin",
-    role: "LECTURER",
-    status: "ACTIVE"
-  },
-  {
-    id: 3,
-    full_name: "Giang Vien 3",
-    email: "toanehihi2.dev@gmail.com",
-    code: "LECTURER003",
-    phone: "0333333333",
-    gender: true,
-    birthday: "2000-01-01",
-    department: "Khoa Công nghệ Thông tin",
-    role: "LECTURER",
-    status: "ACTIVE"
-  },
-  {
-    id: 4,
-    full_name: "Giang Vien 4",
-    email: "toanehihi3.dev@gmail.com",
-    code: "LECTURER004",
-    phone: "0444444444",
-    gender: true,
-    birthday: "2000-01-01",
-    department: "Khoa Công nghệ Thông tin",
-    role: "LECTURER",
-    status: "ACTIVE"
-  },
-  {
-    id: 5,
-    full_name: "Giang Vien 5",
-    email: "toanehihi4.dev@gmail.com",
-    code: "LECTURER005",
-    phone: "0555555555",
-    gender: true,
-    birthday: "2000-01-01",
-    department: "Khoa Công nghệ Thông tin",
-    role: "LECTURER",
-    status: "ACTIVE"
-  }
-];
+// Convert LecturerResponse from API to local Lecturer format
+const mapLecturerResponseToLecturer = (lecturer: LecturerResponse): Lecturer => {
+  return {
+    id: lecturer.id,
+    fullName: lecturer.fullName,
+    email: lecturer.email,
+    code: lecturer.code,
+    phone: lecturer.phone,
+    gender: lecturer.gender,
+    birthday: lecturer.birthday,
+    department: lecturer.department,
+    role: lecturer.role,
+    status: lecturer.status
+  };
+};
+
+// Convert local Lecturer format back to API format for create/update
+const mapLecturerToPayload = (lecturer: Partial<Lecturer>, departmentId: number) => {
+  return {
+    fullName: lecturer.fullName || '',
+    code: lecturer.code || '',
+    email: lecturer.email || '',
+    phone: lecturer.phone || '',
+    gender: lecturer.gender === undefined ? 1 : lecturer.gender ? 1 : 0,
+    birthday: lecturer.birthday || '',
+    departmentId: departmentId
+  };
+};
 
 export default function LecturersPage() {
-  const [lecturers, setLecturers] = useState<Lecturer[]>(initialLecturers);
+  const [lecturers, setLecturers] = useState<Lecturer[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedLecturer, setSelectedLecturer] = useState<Lecturer | null>(null);
@@ -95,6 +69,49 @@ export default function LecturersPage() {
     gender: '',
     searchName: ''
   });
+
+  // Fetch lecturers data
+  useEffect(() => {
+    const fetchLecturers = async () => {
+      try {
+        setLoading(true);
+        const response = await UserService.getAllLecturers();
+        if (response.success) {
+          const mappedLecturers = response.data.map(mapLecturerResponseToLecturer);
+          setLecturers(mappedLecturers);
+        } else {
+          setError(response.message || 'Failed to fetch lecturers');
+        }
+      } catch (err) {
+        setError('Error fetching lecturers: ' + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLecturers();
+  }, []);
+
+  // Fetch departments for the dropdown
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        setDepartmentsLoading(true);
+        const response = await DepartmentService.getAllDepartments();
+        if (response.success) {
+          setDepartments(response.data);
+        } else {
+          console.error('Failed to fetch departments:', response.message);
+        }
+      } catch (err) {
+        console.error('Error fetching departments:', err);
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   // Extract unique values for filter dropdowns
   const departmentOptions = useMemo(() => 
@@ -150,7 +167,7 @@ export default function LecturersPage() {
       }
       
       // Filter by name search
-      if (filters.searchName && !lecturer.full_name.toLowerCase().includes(filters.searchName.toLowerCase())) {
+      if (filters.searchName && !lecturer.fullName.toLowerCase().includes(filters.searchName.toLowerCase())) {
         return false;
       }
       
@@ -189,24 +206,80 @@ export default function LecturersPage() {
     });
   };
 
-  const handleAddLecturer = (newLecturer: Omit<Lecturer, 'id'>) => {
-    setLecturers([...lecturers, { ...newLecturer, id: lecturers.length + 1 }]);
-    setIsAddModalOpen(false);
+  const handleAddLecturer = async (newLecturer: Omit<Lecturer, 'id'>, departmentId: number) => {
+    try {
+      const payload = mapLecturerToPayload(newLecturer, departmentId);
+      const response = await UserService.createLecturer(payload);
+      
+      if (response.success) {
+        // Add the new lecturer to the state
+        const createdLecturer = mapLecturerResponseToLecturer(response.data);
+        setLecturers([...lecturers, createdLecturer]);
+        setIsAddModalOpen(false);
+      } else {
+        // Handle error
+        setError(response.message || 'Failed to create lecturer');
+      }
+    } catch (err) {
+      setError('Error creating lecturer: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
-  const handleEditLecturer = (editedLecturer: Lecturer) => {
-    setLecturers(lecturers.map(lecturer => 
-      lecturer.id === editedLecturer.id ? editedLecturer : lecturer
-    ));
-    setIsEditModalOpen(false);
-    setSelectedLecturer(null);
+  const handleEditLecturer = async (editedLecturer: Lecturer) => {
+    try {
+      // For edit, we only need to update email and phone
+      const response = await UserService.updateUserProfile(
+        editedLecturer.id, 
+        { 
+          email: editedLecturer.email, 
+          phone: editedLecturer.phone 
+        }
+      );
+      
+      if (response.success) {
+        // Update the lecturer in the local state
+        setLecturers(lecturers.map(lecturer => 
+          lecturer.id === editedLecturer.id ? editedLecturer : lecturer
+        ));
+        setIsEditModalOpen(false);
+        setSelectedLecturer(null);
+      } else {
+        setError(response.message || 'Failed to update lecturer');
+      }
+    } catch (err) {
+      setError('Error updating lecturer: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   const handleDeleteLecturer = (lecturerId: number) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa giảng viên này?")) {
+      // Note: API endpoint for deletion is not available in UserService
+      // This would be implemented when API endpoint is ready
+      // For now, just update the UI
       setLecturers(lecturers.filter(lecturer => lecturer.id !== lecturerId));
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Error! </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -294,7 +367,7 @@ export default function LecturersPage() {
                     {lecturer.code}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {lecturer.full_name}
+                    {lecturer.fullName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {lecturer.email}
@@ -368,17 +441,20 @@ export default function LecturersPage() {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 const formData = new FormData(form);
+                const departmentId = Number(formData.get('departmentId'));
+                const departmentName = departments.find(d => d.id === departmentId)?.name || '';
+                
                 handleAddLecturer({
-                  full_name: formData.get('full_name') as string,
+                  fullName: formData.get('fullName') as string,
                   email: formData.get('email') as string,
                   code: formData.get('code') as string,
                   phone: formData.get('phone') as string,
                   gender: formData.get('gender') === 'true',
                   birthday: formData.get('birthday') as string,
-                  department: formData.get('department') as string,
+                  department: departmentName,
                   role: 'LECTURER',
                   status: 'ACTIVE'
-                });
+                }, departmentId);
               }}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Mã giảng viên</label>
@@ -394,7 +470,7 @@ export default function LecturersPage() {
                   <label className="block text-sm font-medium text-gray-700">Họ và tên</label>
                   <input
                     type="text"
-                    name="full_name"
+                    name="fullName"
                     required
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
                     placeholder="Nhập họ và tên"
@@ -443,13 +519,25 @@ export default function LecturersPage() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Khoa</label>
-                  <input
-                    type="text"
-                    name="department"
+                  <select
+                    name="departmentId"
                     required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    placeholder="Nhập tên khoa"
-                  />
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 appearance-none bg-white"
+                    disabled={departmentsLoading}
+                  >
+                    {departmentsLoading ? (
+                      <option value="">Đang tải...</option>
+                    ) : (
+                      <>
+                        <option value="">Chọn khoa</option>
+                        {departments.map((department) => (
+                          <option key={department.id} value={department.id}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
@@ -494,16 +582,19 @@ export default function LecturersPage() {
               e.preventDefault();
               const form = e.target as HTMLFormElement;
               const formData = new FormData(form);
+              const departmentId = Number(formData.get('departmentId'));
+              const departmentName = departments.find(d => d.id === departmentId)?.name || selectedLecturer.department;
+              
               handleEditLecturer({
                 ...selectedLecturer,
-                full_name: formData.get('full_name') as string,
+                fullName: formData.get('fullName') as string,
                 email: formData.get('email') as string,
                 code: formData.get('code') as string,
                 phone: formData.get('phone') as string,
                 gender: formData.get('gender') === 'true',
                 birthday: formData.get('birthday') as string,
-                department: formData.get('department') as string,
-                status: formData.get('status') as 'ACTIVE' | 'INACTIVE'
+                department: departmentName,
+                status: formData.get('status') as string
               });
             }} className="h-[calc(100%-4rem)] overflow-y-auto pr-2">
               <div className="grid grid-cols-2 gap-3">
@@ -526,8 +617,8 @@ export default function LecturersPage() {
                       <label className="block text-sm text-gray-700 mb-1">Họ và tên</label>
                       <input
                         type="text"
-                        name="full_name"
-                        defaultValue={selectedLecturer.full_name}
+                        name="fullName"
+                        defaultValue={selectedLecturer.fullName}
                         required
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Nhập họ và tên"
@@ -600,14 +691,29 @@ export default function LecturersPage() {
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Thông tin chuyên môn</h4>
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">Khoa</label>
-                    <input
-                      type="text"
-                      name="department"
-                      defaultValue={selectedLecturer.department}
+                    <select
+                      name="departmentId"
                       required
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Nhập tên khoa"
-                    />
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                      disabled={departmentsLoading}
+                    >
+                      {departmentsLoading ? (
+                        <option value="">Đang tải...</option>
+                      ) : (
+                        <>
+                          <option value="">Chọn khoa</option>
+                          {departments.map((department) => (
+                            <option 
+                              key={department.id} 
+                              value={department.id}
+                              selected={department.name === selectedLecturer.department}
+                            >
+                              {department.name}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
                   </div>
                 </div>
 

@@ -1,46 +1,68 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
+import UserService from "@/services/UserService";
+import ClassService from "@/services/ClassService";
+import { StudentResponse, ClassResponse } from "@/types/TypeResponse";
+import { DataResponse } from "@/types/DataResponse";
 
+// Map StudentResponse to local interface for compatibility
 interface Student {
   id: number;
-  full_name: string;
+  fullName: string;
   email: string;
   code: string;
   phone: string;
   gender: boolean;
   birthday: string;
-  role: 'STUDENT';
-  status: 'ACTIVE' | 'INACTIVE';
+  role: string;
+  status: string;
   class: string;
   major: string;
   specialization: string;
 }
 
-// Sample data - replace with actual API calls later
-const initialStudents: Student[] = [
-  {
-    id: 7,
-    full_name: "Nguyen Van A",
-    email: "n22dccn086@student.ptithcm.edu.vn",
-    code: "STUDENT001",
-    phone: "0123456789",
-    gender: true,
-    birthday: "2004-01-01",
-    role: "STUDENT",
-    status: "ACTIVE",
-    class: "D22CQCN01-N",
-    major: "Công nghệ thông tin",
-    specialization: ""
-  }
-];
+// Convert StudentResponse from API to local Student format
+const mapStudentResponseToStudent = (student: StudentResponse): Student => {
+  return {
+    id: student.id,
+    fullName: student.fullName,
+    email: student.email,
+    code: student.code,
+    phone: student.phone,
+    gender: student.gender,
+    birthday: student.birthday,
+    role: student.role,
+    status: student.status,
+    class: student.class,
+    major: student.major,
+    specialization: student.specialization
+  };
+};
+
+// Convert local Student format back to API format for create/update
+const mapStudentToPayload = (student: Partial<Student>, classId: number) => {
+  return {
+    fullName: student.fullName || '',
+    email: student.email || '',
+    code: student.code || '',
+    phone: student.phone || '',
+    gender: student.gender === undefined ? true : student.gender,
+    birthday: student.birthday ? new Date(student.birthday) : new Date(),
+    classId: classId
+  };
+};
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState<Student[]>(initialStudents);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<ClassResponse[]>([]);
+  const [classesLoading, setClassesLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -52,6 +74,49 @@ export default function StudentsPage() {
     gender: '',
     searchName: ''
   });
+
+  // Fetch students data
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        const response = await UserService.getAllStudents();
+        if (response.success) {
+          const mappedStudents = response.data.map(mapStudentResponseToStudent);
+          setStudents(mappedStudents);
+        } else {
+          setError(response.message || 'Failed to fetch students');
+        }
+      } catch (err) {
+        setError('Error fetching students: ' + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  // Fetch classes for the dropdown
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        setClassesLoading(true);
+        const response = await ClassService.getAllClasses("");
+        if (response.success) {
+          setClasses(response.data);
+        } else {
+          console.error('Failed to fetch classes:', response.message);
+        }
+      } catch (err) {
+        console.error('Error fetching classes:', err);
+      } finally {
+        setClassesLoading(false);
+      }
+    };
+
+    fetchClasses();
+  }, []);
 
   // Extract unique values for filter dropdowns
   const classOptions = useMemo(() => 
@@ -121,7 +186,7 @@ export default function StudentsPage() {
       }
       
       // Filter by name search
-      if (filters.searchName && !student.full_name.toLowerCase().includes(filters.searchName.toLowerCase())) {
+      if (filters.searchName && !student.fullName.toLowerCase().includes(filters.searchName.toLowerCase())) {
         return false;
       }
       
@@ -161,24 +226,80 @@ export default function StudentsPage() {
     });
   };
 
-  const handleAddStudent = (newStudent: Omit<Student, 'id'>) => {
-    setStudents([...students, { ...newStudent, id: students.length + 1 }]);
-    setIsAddModalOpen(false);
+  const handleAddStudent = async (newStudent: Omit<Student, 'id'>, classId: number) => {
+    try {
+      const payload = mapStudentToPayload(newStudent, classId);
+      const response = await UserService.createStudent(payload);
+      
+      if (response.success) {
+        // Add the new student to the state
+        const createdStudent = mapStudentResponseToStudent(response.data);
+        setStudents([...students, createdStudent]);
+        setIsAddModalOpen(false);
+      } else {
+        // Handle error
+        setError(response.message || 'Failed to create student');
+      }
+    } catch (err) {
+      setError('Error creating student: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
-  const handleEditStudent = (editedStudent: Student) => {
-    setStudents(students.map(student => 
-      student.id === editedStudent.id ? editedStudent : student
-    ));
-    setIsEditModalOpen(false);
-    setSelectedStudent(null);
+  const handleEditStudent = async (editedStudent: Student) => {
+    try {
+      // For edit, we only need to update email and phone
+      const response = await UserService.updateUserProfile(
+        editedStudent.id, 
+        { 
+          email: editedStudent.email, 
+          phone: editedStudent.phone 
+        }
+      );
+      
+      if (response.success) {
+        // Update the student in the local state
+        setStudents(students.map(student => 
+          student.id === editedStudent.id ? editedStudent : student
+        ));
+        setIsEditModalOpen(false);
+        setSelectedStudent(null);
+      } else {
+        setError(response.message || 'Failed to update student');
+      }
+    } catch (err) {
+      setError('Error updating student: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   const handleDeleteStudent = (studentId: number) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa sinh viên này?")) {
+      // Note: API endpoint for deletion is not available in UserService
+      // This would be implemented when API endpoint is ready
+      // For now, just update the UI
       setStudents(students.filter(student => student.id !== studentId));
     }
   };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Error! </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -269,7 +390,7 @@ export default function StudentsPage() {
                     {student.code}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {student.full_name}
+                    {student.fullName}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {student.email}
@@ -346,8 +467,11 @@ export default function StudentsPage() {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 const formData = new FormData(form);
+                const classId = Number(formData.get('classId'));
+                const className = classes.find(c => c.id === classId)?.name || '';
+                
                 handleAddStudent({
-                  full_name: formData.get('full_name') as string,
+                  fullName: formData.get('fullName') as string,
                   email: formData.get('email') as string,
                   code: formData.get('code') as string,
                   phone: formData.get('phone') as string,
@@ -355,10 +479,10 @@ export default function StudentsPage() {
                   birthday: formData.get('birthday') as string,
                   role: 'STUDENT',
                   status: 'ACTIVE',
-                  class: formData.get('class') as string,
-                  major: formData.get('major') as string,
-                  specialization: formData.get('specialization') as string
-                });
+                  class: className,
+                  major: '',  // Empty since we're removing this field
+                  specialization: ''  // Empty since we're removing this field
+                }, classId);
               }}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Mã sinh viên</label>
@@ -374,7 +498,7 @@ export default function StudentsPage() {
                   <label className="block text-sm font-medium text-gray-700">Họ và tên</label>
                   <input
                     type="text"
-                    name="full_name"
+                    name="fullName"
                     required
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
                     placeholder="Nhập họ và tên"
@@ -423,32 +547,25 @@ export default function StudentsPage() {
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Lớp</label>
-                  <input
-                    type="text"
-                    name="class"
+                  <select
+                    name="classId"
                     required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    placeholder="Ví dụ: D22CQCN01-N"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Chuyên ngành</label>
-                  <input
-                    type="text"
-                    name="major"
-                    required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    placeholder="Ví dụ: Công nghệ thông tin"
-                  />
-                </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Chuyên sâu</label>
-                  <input
-                    type="text"
-                    name="specialization"
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    placeholder="Ví dụ: Công nghệ phần mềm"
-                  />
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 appearance-none bg-white"
+                    disabled={classesLoading}
+                  >
+                    {classesLoading ? (
+                      <option value="">Đang tải...</option>
+                    ) : (
+                      <>
+                        <option value="">Chọn lớp</option>
+                        {classes.map((classItem) => (
+                          <option key={classItem.id} value={classItem.id}>
+                            {classItem.name} - {classItem.major}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
                 </div>
                 <div className="flex justify-end gap-2">
                   <button
@@ -493,18 +610,19 @@ export default function StudentsPage() {
               e.preventDefault();
               const form = e.target as HTMLFormElement;
               const formData = new FormData(form);
+              const classId = Number(formData.get('classId'));
+              const className = classes.find(c => c.id === classId)?.name || selectedStudent.class;
+              
               handleEditStudent({
                 ...selectedStudent,
-                full_name: formData.get('full_name') as string,
+                fullName: formData.get('fullName') as string,
                 email: formData.get('email') as string,
                 code: formData.get('code') as string,
                 phone: formData.get('phone') as string,
                 gender: formData.get('gender') === 'true',
                 birthday: formData.get('birthday') as string,
-                class: formData.get('class') as string,
-                major: formData.get('major') as string,
-                specialization: formData.get('specialization') as string,
-                status: formData.get('status') as 'ACTIVE' | 'INACTIVE'
+                class: className,
+                status: formData.get('status') as string
               });
             }} className="h-[calc(100%-4rem)] overflow-y-auto pr-2">
               <div className="grid grid-cols-2 gap-3">
@@ -527,8 +645,8 @@ export default function StudentsPage() {
                       <label className="block text-sm text-gray-700 mb-1">Họ và tên</label>
                       <input
                         type="text"
-                        name="full_name"
-                        defaultValue={selectedStudent.full_name}
+                        name="fullName"
+                        defaultValue={selectedStudent.fullName}
                         required
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Nhập họ và tên"
@@ -599,39 +717,31 @@ export default function StudentsPage() {
                 {/* Thông tin học tập */}
                 <div className="col-span-2">
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Thông tin học tập</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Lớp</label>
-                      <input
-                        type="text"
-                        name="class"
-                        defaultValue={selectedStudent.class}
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ví dụ: D22CQCN01-N"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Chuyên ngành</label>
-                      <input
-                        type="text"
-                        name="major"
-                        defaultValue={selectedStudent.major}
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ví dụ: Công nghệ thông tin"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm text-gray-700 mb-1">Chuyên sâu</label>
-                      <input
-                        type="text"
-                        name="specialization"
-                        defaultValue={selectedStudent.specialization}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ví dụ: Công nghệ phần mềm"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm text-gray-700 mb-1">Lớp</label>
+                    <select
+                      name="classId"
+                      required
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                      disabled={classesLoading}
+                    >
+                      {classesLoading ? (
+                        <option value="">Đang tải...</option>
+                      ) : (
+                        <>
+                          <option value="">Chọn lớp</option>
+                          {classes.map((classItem) => (
+                            <option 
+                              key={classItem.id} 
+                              value={classItem.id}
+                              selected={classItem.name === selectedStudent.class}
+                            >
+                              {classItem.name} - {classItem.major}
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </select>
                   </div>
                 </div>
 
