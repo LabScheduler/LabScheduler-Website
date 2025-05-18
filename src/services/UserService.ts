@@ -41,8 +41,8 @@ class UserService {
         }
     }
 
-    async updateUserProfile(id: number, payload: { email: string; phone: string }): Promise<DataResponse<ManagerResponse | LecturerResponse | StudentResponse>> {
-        return await axiosConfig.put(`/user/update/${id}`, payload);
+    async updateUserProfile(payload: { email: string; phone: string }): Promise<DataResponse<ManagerResponse | LecturerResponse | StudentResponse>> {
+        return await axiosConfig.put("/user", payload);
     }
 
     async getAllStudents(): Promise<DataResponse<StudentResponse[]>> {
@@ -68,7 +68,7 @@ class UserService {
         phone: string; 
         gender: boolean; 
         birthday: Date; 
-        classId: number; 
+        classId: number;
     }): Promise<DataResponse<StudentResponse>> {
         const response = await axiosConfig.post(`/user/student`, payload);
         return response.data;
@@ -86,6 +86,47 @@ class UserService {
         const response = await axiosConfig.post(`/user/lecturer`, payload);
         return response.data;
     }
+
+    async deleteUser(id: number): Promise<DataResponse<StudentResponse>> {
+        const response = await axiosConfig.delete(`/user/${id}`);
+        return response.data;
+    }
+
+    async updateStudent(id: number, payload: { 
+        fullName?: string; 
+        email?: string; 
+        code?: string; 
+        phone?: string;
+        gender?: boolean;
+        birthday?: Date;
+    }): Promise<DataResponse<StudentResponse>> {
+        const response = await axiosConfig.patch(`/user/student/${id}`, payload);
+        return response.data;
+    }
+
+    async updateLecturer(id: number, payload: { 
+        fullName?: string; 
+        email?: string; 
+        code?: string; 
+        phone?: string;
+        gender?: boolean;
+        birthday?: Date;
+    }): Promise<DataResponse<LecturerResponse>> {
+        const response = await axiosConfig.patch(`/user/lecturer/${id}`, payload);
+        return response.data;
+    }
+
+    async lockUserAccount(id: number): Promise<DataResponse<StudentResponse | LecturerResponse>> {
+        const response = await axiosConfig.patch(`/user/lock/${id}`);
+        return response.data;
+    }
+
+    async unlockUserAccount(id: number): Promise<DataResponse<StudentResponse | LecturerResponse>> {
+        const response = await axiosConfig.patch(`/user/unlock/${id}`);
+        return response.data;
+    }
+
+
 }
 
 export default new UserService();
