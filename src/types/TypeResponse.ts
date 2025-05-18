@@ -77,3 +77,24 @@ export interface ClassResponse {
   type: string;
   numberOfStudents: number
 }
+
+export interface RoomResponse{
+  id:number;
+  name:string;
+  capacity:number;
+  status: "AVAILABLE" | "UNAVAILABLE" | "REPAIRING";
+  description: string;
+  lastUpdated: Date
+}
+
+export interface SubjectResponse{
+  id: number;
+  code: string;
+  name: string;
+  totalCredits: number;
+  totalTheoryPeriods: number;
+  totalPracticePeriods: number;
+  totalExercisePeriods: number;
+  totalSelfStudyPeriods: number;
+}
+

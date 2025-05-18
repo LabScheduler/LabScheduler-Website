@@ -40,7 +40,7 @@ export default function Home() {
         
         setLoading(false);
       } catch (err) {
-        console.error("Error fetching dashboard data:", err);
+        console.error("Mất kết nối đến máy chủ :(", err);
         setError("Có lỗi xảy ra khi tải dữ liệu");
         setLoading(false);
       }
