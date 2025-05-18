@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon, TrashIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
@@ -9,6 +9,8 @@ import UserService from "@/services/UserService";
 import DepartmentService from "@/services/DepartmentService";
 import { LecturerResponse, Department } from "@/types/TypeResponse";
 import { DataResponse } from "@/types/DataResponse";
+import { NotificationDialog } from "@/components/ui/notification-dialog";
+
 
 // Map LecturerResponse to local interface for compatibility
 interface Lecturer {
@@ -69,6 +71,11 @@ export default function LecturersPage() {
     gender: '',
     searchName: ''
   });
+  const [successLecturer, setSuccessLecturer] = useState<Lecturer | null>(null);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'lock' | 'unlock' | 'delete' | null>(null);
+
+  
 
   // Fetch lecturers data
   useEffect(() => {
@@ -83,7 +90,7 @@ export default function LecturersPage() {
           setError(response.message || 'Failed to fetch lecturers');
         }
       } catch (err) {
-        setError('Error fetching lecturers: ' + (err instanceof Error ? err.message : String(err)));
+        setError('Lỗi kết nối đến máy chủ: ' + (err instanceof Error ? err.message : String(err)));
       } finally {
         setLoading(false);
       }
@@ -212,37 +219,41 @@ export default function LecturersPage() {
       const response = await UserService.createLecturer(payload);
       
       if (response.success) {
-        // Add the new lecturer to the state
         const createdLecturer = mapLecturerResponseToLecturer(response.data);
-        setLecturers([...lecturers, createdLecturer]);
-        setIsAddModalOpen(false);
+        setLecturers(prev => [...prev, createdLecturer]);
+        setSuccessLecturer(createdLecturer);
+        setActionType('add');
+        setIsSuccessDialogOpen(true);
+    setIsAddModalOpen(false);
       } else {
-        // Handle error
         setError(response.message || 'Failed to create lecturer');
       }
     } catch (err) {
-      setError('Error creating lecturer: ' + (err instanceof Error ? err.message : String(err)));
+      setError('Có lỗi khi cố gắng tạo giảng viên: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
   const handleEditLecturer = async (editedLecturer: Lecturer) => {
     try {
-      // For edit, we only need to update email and phone
-      const response = await UserService.updateUserProfile(
-        editedLecturer.id, 
-        { 
-          email: editedLecturer.email, 
-          phone: editedLecturer.phone 
-        }
-      );
-      
+      const payload: any = {
+        fullName: editedLecturer.fullName,
+        email: editedLecturer.email,
+        code: editedLecturer.code,
+        phone: editedLecturer.phone,
+        gender: editedLecturer.gender,
+        birthday: editedLecturer.birthday,
+      };
+      const response = await UserService.updateLecturer(editedLecturer.id, payload);
       if (response.success) {
-        // Update the lecturer in the local state
-        setLecturers(lecturers.map(lecturer => 
-          lecturer.id === editedLecturer.id ? editedLecturer : lecturer
-        ));
-        setIsEditModalOpen(false);
-        setSelectedLecturer(null);
+        const updatedLecturer = mapLecturerResponseToLecturer(response.data);
+        setLecturers(prev => prev.map(lecturer => 
+          lecturer.id === updatedLecturer.id ? updatedLecturer : lecturer
+    ));
+        setSuccessLecturer(updatedLecturer);
+        setActionType('edit');
+        setIsSuccessDialogOpen(true);
+    setIsEditModalOpen(false);
+    setSelectedLecturer(null);
       } else {
         setError(response.message || 'Failed to update lecturer');
       }
@@ -251,12 +262,76 @@ export default function LecturersPage() {
     }
   };
 
-  const handleDeleteLecturer = (lecturerId: number) => {
+  const handleDeleteLecturer = async (lecturerId: number) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa giảng viên này?")) {
-      // Note: API endpoint for deletion is not available in UserService
-      // This would be implemented when API endpoint is ready
-      // For now, just update the UI
-      setLecturers(lecturers.filter(lecturer => lecturer.id !== lecturerId));
+      try {
+        const response = await UserService.deleteUser(lecturerId);
+        if (response.success) {
+          // Update UI after successful deletion
+          setLecturers(prev => prev.filter(lecturer => lecturer.id !== lecturerId));
+          // Show success message
+          const deletedLecturer = lecturers.find(l => l.id === lecturerId);
+          if (deletedLecturer) {
+            setSuccessLecturer(deletedLecturer);
+            setActionType('delete');
+            setIsSuccessDialogOpen(true);
+          }
+        } else {
+          setError(response.message || 'Failed to delete lecturer');
+        }
+      } catch (err) {
+        setError('Error deleting lecturer: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    }
+  };
+
+  const handleLockAccount = async (lecturerId: number) => {
+    try {
+      const response = await UserService.lockUserAccount(lecturerId);
+      if (response.success) {
+        // Update lecturer status in the list
+        setLecturers(prev => prev.map(lecturer => 
+          lecturer.id === lecturerId 
+            ? { ...lecturer, status: 'INACTIVE' }
+            : lecturer
+        ));
+        // Show success message
+        const lockedLecturer = lecturers.find(l => l.id === lecturerId);
+        if (lockedLecturer) {
+          setSuccessLecturer(lockedLecturer);
+          setActionType('lock');
+          setIsSuccessDialogOpen(true);
+    }
+      } else {
+        setError(response.message || 'Failed to lock lecturer account');
+      }
+    } catch (err) {
+      setError('Error locking lecturer account: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleUnlockAccount = async (lecturerId: number) => {
+    try {
+      const response = await UserService.unlockUserAccount(lecturerId);
+      if (response.success) {
+        // Update lecturer status in the list
+        setLecturers(prev => prev.map(lecturer => 
+          lecturer.id === lecturerId 
+            ? { ...lecturer, status: 'ACTIVE' }
+            : lecturer
+        ));
+        // Show success message
+        const unlockedLecturer = lecturers.find(l => l.id === lecturerId);
+        if (unlockedLecturer) {
+          setSuccessLecturer(unlockedLecturer);
+          setActionType('unlock');
+          setIsSuccessDialogOpen(true);
+        }
+      } else {
+        setError(response.message || 'Failed to unlock lecturer account');
+      }
+    } catch (err) {
+      setError('Error unlocking lecturer account: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -271,18 +346,55 @@ export default function LecturersPage() {
 
   // Show error state
   if (error) {
+      if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error! </strong>
-          <span className="block sm:inline">{error}</span>
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <div className="text-center bg-white rounded-xl shadow p-8 max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-red-600 font-medium mb-4">{error || "Không thể tải dữ liệu"}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Thử lại
+          </button>
         </div>
       </div>
     );
   }
+  }
 
   return (
     <div className="p-6">
+      {/* Replace success notification with NotificationDialog */}
+      {successLecturer && (
+        <NotificationDialog
+          isOpen={isSuccessDialogOpen}
+          onClose={() => {
+            setIsSuccessDialogOpen(false);
+            setSuccessLecturer(null);
+            setActionType(null);
+          }}
+          title={
+            actionType === 'add' ? "Thêm giảng viên thành công!" :
+            actionType === 'edit' ? "Cập nhật giảng viên thành công!" :
+            actionType === 'lock' ? "Khóa tài khoản giảng viên thành công!" :
+            actionType === 'unlock' ? "Mở khóa tài khoản giảng viên thành công!" :
+            "Xóa giảng viên thành công!"
+          }
+          details={{
+            "Mã GV": successLecturer.code,
+            "Họ tên": successLecturer.fullName,
+            "Email": successLecturer.email,
+            "Khoa": successLecturer.department,
+            "Trạng thái": successLecturer.status === 'ACTIVE' ? 'Đang giảng dạy' : 'Đã khóa'
+          }}
+        />
+      )}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý giảng viên</h1>
         <div className="flex items-center gap-4">
@@ -390,7 +502,7 @@ export default function LecturersPage() {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {lecturer.status === 'ACTIVE' ? 'Đang giảng dạy' : 'Đã nghỉ'}
+                      {lecturer.status === 'ACTIVE' ? 'Đang giảng dạy' : 'Đã khoá'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -400,12 +512,39 @@ export default function LecturersPage() {
                         setIsEditModalOpen(true);
                       }}
                       className="text-blue-600 hover:text-blue-900 mr-4"
+                      title="Chỉnh sửa"
                     >
                       <PencilIcon className="w-5 h-5" />
                     </button>
+                    {lecturer.status === 'ACTIVE' ? (
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Bạn có chắc chắn muốn khóa tài khoản giảng viên này?")) {
+                            handleLockAccount(lecturer.id);
+                          }
+                        }}
+                        className="text-yellow-600 hover:text-yellow-900 mr-4"
+                        title="Khóa tài khoản"
+                      >
+                        <LockClosedIcon className="w-5 h-5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Bạn có chắc chắn muốn mở khóa tài khoản giảng viên này?")) {
+                            handleUnlockAccount(lecturer.id);
+                          }
+                        }}
+                        className="text-green-600 hover:text-green-900 mr-4"
+                        title="Mở khóa tài khoản"
+                      >
+                        <LockOpenIcon className="w-5 h-5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteLecturer(lecturer.id)}
                       className="text-red-600 hover:text-red-900"
+                      title="Xóa"
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
@@ -691,29 +830,14 @@ export default function LecturersPage() {
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Thông tin chuyên môn</h4>
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">Khoa</label>
-                    <select
-                      name="departmentId"
-                      required
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
-                      disabled={departmentsLoading}
-                    >
-                      {departmentsLoading ? (
-                        <option value="">Đang tải...</option>
-                      ) : (
-                        <>
-                          <option value="">Chọn khoa</option>
-                          {departments.map((department) => (
-                            <option 
-                              key={department.id} 
-                              value={department.id}
-                              selected={department.name === selectedLecturer.department}
-                            >
-                              {department.name}
-                            </option>
-                          ))}
-                        </>
-                      )}
-                    </select>
+                    <input
+                      type="text"
+                      name="department"
+                      value={selectedLecturer.department}
+                      disabled
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                      readOnly
+                    />
                   </div>
                 </div>
 
@@ -727,7 +851,7 @@ export default function LecturersPage() {
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
                     >
                       <option value="ACTIVE">Đang giảng dạy</option>
-                      <option value="INACTIVE">Đã nghỉ</option>
+                      <option value="INACTIVE">Đã khoá</option>
                     </select>
                   </div>
                 </div>
