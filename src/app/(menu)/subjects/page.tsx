@@ -1,98 +1,40 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
+import SubjectService from "@/services/SubjectService";
+import { SubjectResponse } from "@/types/TypeResponse";
+import { NotificationDialog } from "@/components/ui/notification-dialog";
 
 interface Subject {
   id: number;
   code: string;
   name: string;
-  total_credits: number;
-  total_theory_periods: number;
-  total_practice_periods: number;
-  total_exercise_periods: number;
-  total_self_study_periods: number;
+  totalCredits: number;
+  totalTheoryPeriods: number;
+  totalPracticePeriods: number;
+  totalExercisePeriods: number;
+  totalSelfStudyPeriods: number;
 }
 
-// Sample data - replace with actual API calls later
-const initialSubjects: Subject[] = [
-  {
-    id: 1,
-    code: "BAS1150",
-    name: "Triết học Mác - Lênin",
-    total_credits: 3,
-    total_theory_periods: 45,
-    total_practice_periods: 0,
-    total_exercise_periods: 0,
-    total_self_study_periods: 0
-  },
-  {
-    id: 2,
-    code: "BAS1203",
-    name: "Giải tích 1",
-    total_credits: 3,
-    total_theory_periods: 36,
-    total_practice_periods: 0,
-    total_exercise_periods: 0,
-    total_self_study_periods: 0
-  },
-  {
-    id: 3,
-    code: "INT1154",
-    name: "Tin học cơ sở 1",
-    total_credits: 2,
-    total_theory_periods: 20,
-    total_practice_periods: 4,
-    total_exercise_periods: 0,
-    total_self_study_periods: 0
-  },
-  {
-    id: 4,
-    code: "BAS1201",
-    name: "Đại số",
-    total_credits: 3,
-    total_theory_periods: 36,
-    total_practice_periods: 0,
-    total_exercise_periods: 0,
-    total_self_study_periods: 0
-  },
-  {
-    id: 5,
-    code: "BAS1106",
-    name: "Giáo dục thể chất 1",
-    total_credits: 2,
-    total_theory_periods: 2,
-    total_practice_periods: 0,
-    total_exercise_periods: 0,
-    total_self_study_periods: 0
-  },
-  {
-    id: 6,
-    code: "BAS1105-7",
-    name: "Giáo dục quốc phòng và an ninh",
-    total_credits: 7,
-    total_theory_periods: 0,
-    total_practice_periods: 165,
-    total_exercise_periods: 0,
-    total_self_study_periods: 0
-  },
-  {
-    id: 7,
-    code: "BAS1151",
-    name: "Kinh tế chính trị Mác - Lênin",
-    total_credits: 2,
-    total_theory_periods: 30,
-    total_practice_periods: 0,
-    total_exercise_periods: 0,
-    total_self_study_periods: 0
-  },
-];
+const mapSubjectResponseToSubject = (subject: SubjectResponse): Subject => ({
+  id: subject.id,
+  code: subject.code,
+  name: subject.name,
+  totalCredits: subject.totalCredits,
+  totalTheoryPeriods: subject.totalTheoryPeriods,
+  totalPracticePeriods: subject.totalPracticePeriods,
+  totalExercisePeriods: subject.totalExercisePeriods,
+  totalSelfStudyPeriods: subject.totalSelfStudyPeriods,
+});
 
 export default function SubjectsPage() {
-  const [subjects, setSubjects] = useState<Subject[]>(initialSubjects);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
@@ -102,27 +44,46 @@ export default function SubjectsPage() {
     name: '',
     credits: ''
   });
+  const [successSubject, setSuccessSubject] = useState<Subject | null>(null);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | null>(null);
+
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        setLoading(true);
+        const response = await SubjectService.getAllSubjects();
+        if (response.success) {
+          setSubjects(response.data.map(mapSubjectResponseToSubject));
+        } else {
+          setError(response.message || 'Không thể tải danh sách môn học');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải môn học: ' + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSubjects();
+  }, []);
 
   // Extract unique values for filter dropdowns
-  const uniqueCodes = useMemo(() => 
-    Array.from(new Set(initialSubjects.map(s => s.code.substring(0, 3)))), []);
-  
-  const creditOptions = useMemo(() => 
-    Array.from(new Set(initialSubjects.map(s => s.total_credits))).sort(), []);
+  const creditsOptions = useMemo(() => 
+    Array.from(new Set(subjects.map(s => s.totalCredits))).sort(), [subjects]);
 
   const filterOptions = useMemo(() => [
     {
       id: 'code',
       label: 'Mã môn học',
-      type: 'select' as const,
-      value: filters.code,
-      options: uniqueCodes.map(code => ({ value: code, label: code }))
+      type: 'search' as const,
+      value: filters.code || '',
+      placeholder: 'Nhập mã môn học...'
     },
     {
       id: 'name',
       label: 'Tên môn học',
       type: 'search' as const,
-      value: filters.name,
+      value: filters.name || '',
       placeholder: 'Nhập tên môn học...'
     },
     {
@@ -130,15 +91,18 @@ export default function SubjectsPage() {
       label: 'Số tín chỉ',
       type: 'select' as const,
       value: filters.credits,
-      options: creditOptions.map(credits => ({ value: credits.toString(), label: credits.toString() }))
+      options: creditsOptions.map(credits => ({ 
+        value: credits.toString(), 
+        label: `${credits} tín chỉ` 
+      }))
     }
-  ], [filters, uniqueCodes, creditOptions]);
+  ], [filters, creditsOptions]);
 
   // Apply filters
   const filteredSubjects = useMemo(() => {
     return subjects.filter(subject => {
-      // Filter by code prefix (e.g., BAS, INT)
-      if (filters.code && !subject.code.startsWith(filters.code)) {
+      // Filter by code
+      if (filters.code && !subject.code.toLowerCase().includes(filters.code.toLowerCase())) {
         return false;
       }
       
@@ -148,7 +112,7 @@ export default function SubjectsPage() {
       }
       
       // Filter by credits
-      if (filters.credits && subject.total_credits !== parseInt(filters.credits)) {
+      if (filters.credits && subject.totalCredits !== parseInt(filters.credits)) {
         return false;
       }
       
@@ -186,27 +150,144 @@ export default function SubjectsPage() {
     });
   };
 
-  const handleAddSubject = (newSubject: Omit<Subject, 'id'>) => {
-    setSubjects([...subjects, { ...newSubject, id: subjects.length + 1 }]);
-    setIsAddModalOpen(false);
-  };
-
-  const handleEditSubject = (editedSubject: Subject) => {
-    setSubjects(subjects.map(subject => 
-      subject.id === editedSubject.id ? editedSubject : subject
-    ));
-    setIsEditModalOpen(false);
-    setSelectedSubject(null);
-  };
-
-  const handleDeleteSubject = (subjectId: number) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa môn học này?")) {
-      setSubjects(subjects.filter(subject => subject.id !== subjectId));
+  const handleAddSubject = async (newSubject: Omit<Subject, 'id'>) => {
+    try {
+      const response = await SubjectService.createSubject(
+        newSubject.code,
+        newSubject.name,
+        newSubject.totalCredits,
+        newSubject.totalTheoryPeriods,
+        newSubject.totalPracticePeriods,
+        newSubject.totalExercisePeriods,
+        newSubject.totalSelfStudyPeriods
+      );
+      
+      if (response.success) {
+        const createdSubject = mapSubjectResponseToSubject(response.data);
+        setSubjects(prev => [...prev, createdSubject]);
+        setSuccessSubject(createdSubject);
+        setActionType('add');
+        setIsSuccessDialogOpen(true);
+        setIsAddModalOpen(false);
+      } else {
+        setError(response.message || 'Có lỗi khi tạo môn học');
+      }
+    } catch (err) {
+      setError('Có lỗi khi tạo môn học: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
+  const handleEditSubject = async (editedSubject: Subject) => {
+    try {
+      const response = await SubjectService.updateSubject(
+        editedSubject.id,
+        editedSubject.code,
+        editedSubject.name,
+        editedSubject.totalCredits,
+        editedSubject.totalTheoryPeriods,
+        editedSubject.totalPracticePeriods,
+        editedSubject.totalExercisePeriods,
+        editedSubject.totalSelfStudyPeriods
+      );
+      
+      if (response.success) {
+        const updatedSubject = mapSubjectResponseToSubject(response.data);
+        setSubjects(prev => prev.map(subject => 
+          subject.id === updatedSubject.id ? updatedSubject : subject
+        ));
+        setSuccessSubject(updatedSubject);
+        setActionType('edit');
+        setIsSuccessDialogOpen(true);
+        setIsEditModalOpen(false);
+        setSelectedSubject(null);
+      } else {
+        setError(response.message || 'Có lỗi khi cập nhật môn học');
+      }
+    } catch (err) {
+      setError('Có lỗi khi cập nhật môn học: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleDeleteSubject = async (subjectId: number) => {
+    if (window.confirm("Bạn có chắc chắn muốn xóa môn học này?")) {
+      try {
+        const response = await SubjectService.deleteSubject(subjectId);
+        if (response.success) {
+          const deletedSubject = subjects.find(s => s.id === subjectId);
+          setSubjects(prev => prev.filter(subject => subject.id !== subjectId));
+          if (deletedSubject) {
+            setSuccessSubject(deletedSubject);
+            setActionType('delete');
+            setIsSuccessDialogOpen(true);
+          }
+        } else {
+          setError(response.message || 'Có lỗi khi xóa môn học');
+        }
+      } catch (err) {
+        setError('Có lỗi khi xóa môn học: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    }
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <div className="text-center bg-white rounded-xl shadow p-8 max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-red-600 font-medium mb-4">{error || "Không thể tải dữ liệu"}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
+      {/* Success notification dialog */}
+      {successSubject && (
+        <NotificationDialog
+          isOpen={isSuccessDialogOpen}
+          onClose={() => {
+            setIsSuccessDialogOpen(false);
+            setSuccessSubject(null);
+            setActionType(null);
+          }}
+          title={
+            actionType === 'add' ? "Thêm môn học thành công!" :
+            actionType === 'edit' ? "Cập nhật môn học thành công!" :
+            "Xóa môn học thành công!"
+          }
+          details={{
+            "Mã môn học": successSubject.code,
+            "Tên môn học": successSubject.name,
+            "Số tín chỉ": `${successSubject.totalCredits} tín chỉ`,
+            "Số tiết lý thuyết": `${successSubject.totalTheoryPeriods} tiết`,
+            "Số tiết thực hành": `${successSubject.totalPracticePeriods} tiết`,
+            "Số tiết bài tập": `${successSubject.totalExercisePeriods} tiết`,
+            "Số tiết tự học": `${successSubject.totalSelfStudyPeriods} tiết`
+          }}
+        />
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý môn học</h1>
         <div className="flex items-center gap-4">
@@ -246,10 +327,16 @@ export default function SubjectsPage() {
                   Số tín chỉ
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Lý thuyết
+                  Số tiết lý thuyết
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Thực hành
+                  Số tiết thực hành
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Số tiết bài tập
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Số tiết tự học
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Thao tác
@@ -266,13 +353,19 @@ export default function SubjectsPage() {
                     {subject.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {subject.total_credits}
+                    {subject.totalCredits} tín chỉ
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {subject.total_theory_periods} tiết
+                    {subject.totalTheoryPeriods} tiết
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {subject.total_practice_periods} tiết
+                    {subject.totalPracticePeriods} tiết
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {subject.totalExercisePeriods} tiết
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {subject.totalSelfStudyPeriods} tiết
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
@@ -281,12 +374,14 @@ export default function SubjectsPage() {
                         setIsEditModalOpen(true);
                       }}
                       className="text-blue-600 hover:text-blue-900 mr-4"
+                      title="Chỉnh sửa"
                     >
                       <PencilIcon className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => handleDeleteSubject(subject.id)}
                       className="text-red-600 hover:text-red-900"
+                      title="Xóa"
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
@@ -325,11 +420,11 @@ export default function SubjectsPage() {
                 handleAddSubject({
                   code: formData.get('code') as string,
                   name: formData.get('name') as string,
-                  total_credits: parseInt(formData.get('total_credits') as string, 10),
-                  total_theory_periods: parseInt(formData.get('total_theory_periods') as string, 10),
-                  total_practice_periods: parseInt(formData.get('total_practice_periods') as string, 10),
-                  total_exercise_periods: parseInt(formData.get('total_exercise_periods') as string, 10),
-                  total_self_study_periods: parseInt(formData.get('total_self_study_periods') as string, 10)
+                  totalCredits: parseInt(formData.get('totalCredits') as string, 10),
+                  totalTheoryPeriods: parseInt(formData.get('totalTheoryPeriods') as string, 10),
+                  totalPracticePeriods: parseInt(formData.get('totalPracticePeriods') as string, 10),
+                  totalExercisePeriods: parseInt(formData.get('totalExercisePeriods') as string, 10),
+                  totalSelfStudyPeriods: parseInt(formData.get('totalSelfStudyPeriods') as string, 10)
                 });
               }}>
                 <div className="grid grid-cols-2 gap-4">
@@ -340,7 +435,7 @@ export default function SubjectsPage() {
                       name="code"
                       required
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                      placeholder="Ví dụ: BAS1150"
+                      placeholder="Nhập mã môn học"
                     />
                   </div>
                   <div className="mb-4">
@@ -357,9 +452,8 @@ export default function SubjectsPage() {
                     <label className="block text-sm font-medium text-gray-700">Số tín chỉ</label>
                     <input
                       type="number"
-                      name="total_credits"
+                      name="totalCredits"
                       min="1"
-                      max="10"
                       required
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
                       placeholder="Nhập số tín chỉ"
@@ -369,7 +463,7 @@ export default function SubjectsPage() {
                     <label className="block text-sm font-medium text-gray-700">Số tiết lý thuyết</label>
                     <input
                       type="number"
-                      name="total_theory_periods"
+                      name="totalTheoryPeriods"
                       min="0"
                       required
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
@@ -380,7 +474,7 @@ export default function SubjectsPage() {
                     <label className="block text-sm font-medium text-gray-700">Số tiết thực hành</label>
                     <input
                       type="number"
-                      name="total_practice_periods"
+                      name="totalPracticePeriods"
                       min="0"
                       required
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
@@ -391,7 +485,7 @@ export default function SubjectsPage() {
                     <label className="block text-sm font-medium text-gray-700">Số tiết bài tập</label>
                     <input
                       type="number"
-                      name="total_exercise_periods"
+                      name="totalExercisePeriods"
                       min="0"
                       required
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
@@ -402,7 +496,7 @@ export default function SubjectsPage() {
                     <label className="block text-sm font-medium text-gray-700">Số tiết tự học</label>
                     <input
                       type="number"
-                      name="total_self_study_periods"
+                      name="totalSelfStudyPeriods"
                       min="0"
                       required
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
@@ -457,109 +551,95 @@ export default function SubjectsPage() {
                 ...selectedSubject,
                 code: formData.get('code') as string,
                 name: formData.get('name') as string,
-                total_credits: parseInt(formData.get('total_credits') as string, 10),
-                total_theory_periods: parseInt(formData.get('total_theory_periods') as string, 10),
-                total_practice_periods: parseInt(formData.get('total_practice_periods') as string, 10),
-                total_exercise_periods: parseInt(formData.get('total_exercise_periods') as string, 10),
-                total_self_study_periods: parseInt(formData.get('total_self_study_periods') as string, 10)
+                totalCredits: parseInt(formData.get('totalCredits') as string, 10),
+                totalTheoryPeriods: parseInt(formData.get('totalTheoryPeriods') as string, 10),
+                totalPracticePeriods: parseInt(formData.get('totalPracticePeriods') as string, 10),
+                totalExercisePeriods: parseInt(formData.get('totalExercisePeriods') as string, 10),
+                totalSelfStudyPeriods: parseInt(formData.get('totalSelfStudyPeriods') as string, 10)
               });
             }} className="h-[calc(100%-4rem)] overflow-y-auto pr-2">
               <div className="grid grid-cols-2 gap-3">
-                {/* Thông tin cơ bản */}
-                <div className="col-span-2">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Thông tin cơ bản</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Mã môn học</label>
-                      <input
-                        type="text"
-                        name="code"
-                        defaultValue={selectedSubject.code}
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Ví dụ: BAS1150"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Tên môn học</label>
-                      <input
-                        type="text"
-                        name="name"
-                        defaultValue={selectedSubject.name}
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập tên môn học"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Số tín chỉ</label>
-                      <input
-                        type="number"
-                        name="total_credits"
-                        defaultValue={selectedSubject.total_credits}
-                        min="1"
-                        max="10"
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập số tín chỉ"
-                      />
-                    </div>
-                  </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Mã môn học</label>
+                  <input
+                    type="text"
+                    name="code"
+                    defaultValue={selectedSubject.code}
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="Nhập mã môn học"
+                  />
                 </div>
-
-                {/* Thông tin số tiết */}
-                <div className="col-span-2">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Thông tin số tiết</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Số tiết lý thuyết</label>
-                      <input
-                        type="number"
-                        name="total_theory_periods"
-                        defaultValue={selectedSubject.total_theory_periods}
-                        min="0"
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập số tiết lý thuyết"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Số tiết thực hành</label>
-                      <input
-                        type="number"
-                        name="total_practice_periods"
-                        defaultValue={selectedSubject.total_practice_periods}
-                        min="0"
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập số tiết thực hành"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Số tiết bài tập</label>
-                      <input
-                        type="number"
-                        name="total_exercise_periods"
-                        defaultValue={selectedSubject.total_exercise_periods}
-                        min="0"
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập số tiết bài tập"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Số tiết tự học</label>
-                      <input
-                        type="number"
-                        name="total_self_study_periods"
-                        defaultValue={selectedSubject.total_self_study_periods}
-                        min="0"
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập số tiết tự học"
-                      />
-                    </div>
-                  </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Tên môn học</label>
+                  <input
+                    type="text"
+                    name="name"
+                    defaultValue={selectedSubject.name}
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="Nhập tên môn học"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Số tín chỉ</label>
+                  <input
+                    type="number"
+                    name="totalCredits"
+                    defaultValue={selectedSubject.totalCredits}
+                    min="1"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="Nhập số tín chỉ"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Số tiết lý thuyết</label>
+                  <input
+                    type="number"
+                    name="totalTheoryPeriods"
+                    defaultValue={selectedSubject.totalTheoryPeriods}
+                    min="0"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="Nhập số tiết lý thuyết"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Số tiết thực hành</label>
+                  <input
+                    type="number"
+                    name="totalPracticePeriods"
+                    defaultValue={selectedSubject.totalPracticePeriods}
+                    min="0"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="Nhập số tiết thực hành"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Số tiết bài tập</label>
+                  <input
+                    type="number"
+                    name="totalExercisePeriods"
+                    defaultValue={selectedSubject.totalExercisePeriods}
+                    min="0"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="Nhập số tiết bài tập"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Số tiết tự học</label>
+                  <input
+                    type="number"
+                    name="totalSelfStudyPeriods"
+                    defaultValue={selectedSubject.totalSelfStudyPeriods}
+                    min="0"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="Nhập số tiết tự học"
+                  />
                 </div>
               </div>
 

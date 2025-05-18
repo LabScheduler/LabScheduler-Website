@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon, TrashIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
@@ -9,6 +9,7 @@ import UserService from "@/services/UserService";
 import ClassService from "@/services/ClassService";
 import { StudentResponse, ClassResponse } from "@/types/TypeResponse";
 import { DataResponse } from "@/types/DataResponse";
+import { NotificationDialog } from "@/components/ui/notification-dialog";
 
 // Map StudentResponse to local interface for compatibility
 interface Student {
@@ -74,6 +75,9 @@ export default function StudentsPage() {
     gender: '',
     searchName: ''
   });
+  const [successStudent, setSuccessStudent] = useState<Student | null>(null);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'lock' | 'unlock' | 'delete' | null>(null);
 
   // Fetch students data
   useEffect(() => {
@@ -88,7 +92,7 @@ export default function StudentsPage() {
           setError(response.message || 'Failed to fetch students');
         }
       } catch (err) {
-        setError('Error fetching students: ' + (err instanceof Error ? err.message : String(err)));
+        setError('Lỗi kết nối đến máy chủ: ' + (err instanceof Error ? err.message : String(err)));
       } finally {
         setLoading(false);
       }
@@ -126,8 +130,8 @@ export default function StudentsPage() {
     Array.from(new Set(students.map(s => s.major))), [students]);
   
   const statusOptions = useMemo(() => [
-    { value: 'ACTIVE', label: 'Đang học' },
-    { value: 'INACTIVE', label: 'Đã nghỉ' }
+    { value: 'ACTIVE', label: 'Đang hoạt động' },
+    { value: 'INACTIVE', label: 'Đã khoá' }
   ], []);
 
   const genderOptions = useMemo(() => [
@@ -232,51 +236,119 @@ export default function StudentsPage() {
       const response = await UserService.createStudent(payload);
       
       if (response.success) {
-        // Add the new student to the state
         const createdStudent = mapStudentResponseToStudent(response.data);
-        setStudents([...students, createdStudent]);
+        setStudents(prev => [...prev, createdStudent]);
+        setSuccessStudent(createdStudent);
+        setActionType('add');
+        setIsSuccessDialogOpen(true);
         setIsAddModalOpen(false);
       } else {
-        // Handle error
-        setError(response.message || 'Failed to create student');
+        setError(response.message || 'Có lỗi khi tạo tài khoản sinh viên');
       }
     } catch (err) {
-      setError('Error creating student: ' + (err instanceof Error ? err.message : String(err)));
+      setError('Có lỗi khi tạo tài khoản sinh viên ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
   const handleEditStudent = async (editedStudent: Student) => {
     try {
-      // For edit, we only need to update email and phone
-      const response = await UserService.updateUserProfile(
-        editedStudent.id, 
-        { 
-          email: editedStudent.email, 
-          phone: editedStudent.phone 
-        }
-      );
-      
+      const payload: any = {
+        fullName: editedStudent.fullName,
+        email: editedStudent.email,
+        code: editedStudent.code,
+        phone: editedStudent.phone,
+        gender: editedStudent.gender,
+        birthday: editedStudent.birthday,
+      };
+      const response = await UserService.updateStudent(editedStudent.id, payload);
       if (response.success) {
-        // Update the student in the local state
-        setStudents(students.map(student => 
-          student.id === editedStudent.id ? editedStudent : student
+        const updatedStudent = mapStudentResponseToStudent(response.data);
+        setStudents(prev => prev.map(student => 
+          student.id === updatedStudent.id ? updatedStudent : student
         ));
+        setSuccessStudent(updatedStudent);
+        setActionType('edit');
+        setIsSuccessDialogOpen(true);
         setIsEditModalOpen(false);
         setSelectedStudent(null);
       } else {
         setError(response.message || 'Failed to update student');
       }
     } catch (err) {
-      setError('Error updating student: ' + (err instanceof Error ? err.message : String(err)));
+      setError('Lỗi cập nhật sinh viên: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
-  const handleDeleteStudent = (studentId: number) => {
+  const handleDeleteStudent = async (studentId: number) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa sinh viên này?")) {
-      // Note: API endpoint for deletion is not available in UserService
-      // This would be implemented when API endpoint is ready
-      // For now, just update the UI
-      setStudents(students.filter(student => student.id !== studentId));
+      try {
+        const response = await UserService.deleteUser(studentId);
+        if (response.success) {
+          // Update UI after successful deletion
+          setStudents(prev => prev.filter(student => student.id !== studentId));
+          // Show success message
+          const deletedStudent = students.find(s => s.id === studentId);
+          if (deletedStudent) {
+            setSuccessStudent(deletedStudent);
+            setActionType('delete');
+            setIsSuccessDialogOpen(true);
+          }
+        } else {
+          setError(response.message || 'Failed to delete student');
+        }
+      } catch (err) {
+        setError('Lỗi xoá sinh viên: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    }
+  };
+
+  const handleLockAccount = async (studentId: number) => {
+    try {
+      const response = await UserService.lockUserAccount(studentId);
+      if (response.success) {
+        // Update student status in the list
+        setStudents(prev => prev.map(student => 
+          student.id === studentId 
+            ? { ...student, status: 'INACTIVE' }
+            : student
+        ));
+        // Show success message
+        const lockedStudent = students.find(s => s.id === studentId);
+        if (lockedStudent) {
+          setSuccessStudent(lockedStudent);
+          setActionType('lock');
+          setIsSuccessDialogOpen(true);
+        }
+      } else {
+        setError(response.message || 'Failed to lock student account');
+      }
+    } catch (err) {
+      setError('Error locking student account: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleUnlockAccount = async (studentId: number) => {
+    try {
+      const response = await UserService.unlockUserAccount(studentId);
+      if (response.success) {
+        // Update student status in the list
+        setStudents(prev => prev.map(student => 
+          student.id === studentId 
+            ? { ...student, status: 'ACTIVE' }
+            : student
+        ));
+        // Show success message
+        const unlockedStudent = students.find(s => s.id === studentId);
+        if (unlockedStudent) {
+          setSuccessStudent(unlockedStudent);
+          setActionType('unlock');
+          setIsSuccessDialogOpen(true);
+        }
+      } else {
+        setError(response.message || 'Failed to unlock student account');
+      }
+    } catch (err) {
+      setError('Error unlocking student account: ' + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -291,18 +363,55 @@ export default function StudentsPage() {
 
   // Show error state
   if (error) {
+      if (error) {
     return (
-      <div className="p-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-          <strong className="font-bold">Error! </strong>
-          <span className="block sm:inline">{error}</span>
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <div className="text-center bg-white rounded-xl shadow p-8 max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-red-600 font-medium mb-4">{error || "Không thể tải dữ liệu"}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Thử lại
+          </button>
         </div>
       </div>
     );
   }
+  }
 
   return (
     <div className="p-6">
+      {/* Replace success notification with NotificationDialog */}
+      {successStudent && (
+        <NotificationDialog
+          isOpen={isSuccessDialogOpen}
+          onClose={() => {
+            setIsSuccessDialogOpen(false);
+            setSuccessStudent(null);
+            setActionType(null);
+          }}
+          title={
+            actionType === 'add' ? "Thêm sinh viên thành công!" :
+            actionType === 'edit' ? "Cập nhật sinh viên thành công!" :
+            actionType === 'lock' ? "Khóa tài khoản sinh viên thành công!" :
+            actionType === 'unlock' ? "Mở khóa tài khoản sinh viên thành công!" :
+            "Xóa sinh viên thành công!"
+          }
+          details={{
+            "Mã SV": successStudent.code,
+            "Họ tên": successStudent.fullName,
+            "Email": successStudent.email,
+            "Lớp": successStudent.class,
+            "Trạng thái": successStudent.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'
+          }}
+        />
+      )}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý sinh viên</h1>
         <div className="flex items-center gap-4">
@@ -416,7 +525,7 @@ export default function StudentsPage() {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {student.status === 'ACTIVE' ? 'Đang học' : 'Đã nghỉ'}
+                      {student.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã khoá'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -426,12 +535,39 @@ export default function StudentsPage() {
                         setIsEditModalOpen(true);
                       }}
                       className="text-blue-600 hover:text-blue-900 mr-4"
+                      title="Chỉnh sửa"
                     >
                       <PencilIcon className="w-5 h-5" />
                     </button>
+                    {student.status === 'ACTIVE' ? (
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Bạn có chắc chắn muốn khóa tài khoản sinh viên này?")) {
+                            handleLockAccount(student.id);
+                          }
+                        }}
+                        className="text-yellow-600 hover:text-yellow-900 mr-4"
+                        title="Khóa tài khoản"
+                      >
+                        <LockClosedIcon className="w-5 h-5" />
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Bạn có chắc chắn muốn mở khóa tài khoản sinh viên này?")) {
+                            handleUnlockAccount(student.id);
+                          }
+                        }}
+                        className="text-green-600 hover:text-green-900 mr-4"
+                        title="Mở khóa tài khoản"
+                      >
+                        <LockOpenIcon className="w-5 h-5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteStudent(student.id)}
                       className="text-red-600 hover:text-red-900"
+                      title="Xóa"
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
@@ -719,29 +855,14 @@ export default function StudentsPage() {
                   <h4 className="text-sm font-medium text-gray-700 mb-2">Thông tin học tập</h4>
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">Lớp</label>
-                    <select
-                      name="classId"
-                      required
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
-                      disabled={classesLoading}
-                    >
-                      {classesLoading ? (
-                        <option value="">Đang tải...</option>
-                      ) : (
-                        <>
-                          <option value="">Chọn lớp</option>
-                          {classes.map((classItem) => (
-                            <option 
-                              key={classItem.id} 
-                              value={classItem.id}
-                              selected={classItem.name === selectedStudent.class}
-                            >
-                              {classItem.name} - {classItem.major}
-                            </option>
-                          ))}
-                        </>
-                      )}
-                    </select>
+                    <input
+                      type="text"
+                      name="class"
+                      value={selectedStudent.class}
+                      disabled
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm bg-gray-100 cursor-not-allowed"
+                      readOnly
+                    />
                   </div>
                 </div>
 
@@ -754,8 +875,8 @@ export default function StudentsPage() {
                       defaultValue={selectedStudent.status}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
                     >
-                      <option value="ACTIVE">Đang học</option>
-                      <option value="INACTIVE">Đã nghỉ</option>
+                      <option value="ACTIVE">Đang hoạt động</option>
+                      <option value="INACTIVE">Đã khoá</option>
                     </select>
                   </div>
                 </div>

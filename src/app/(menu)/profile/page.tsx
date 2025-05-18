@@ -78,7 +78,7 @@ export default function ProfilePage() {
       setUpdateError(null);
       setUpdateSuccess(false);
 
-      await UserService.updateUserProfile(userId, {
+      await UserService.updateUserProfile({
         email: updateFormData.email,
         phone: updateFormData.phone
       });

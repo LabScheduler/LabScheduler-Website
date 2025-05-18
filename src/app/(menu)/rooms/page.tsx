@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
+import RoomService from "@/services/RoomService";
+import { RoomResponse } from "@/types/TypeResponse";
+import { NotificationDialog } from "@/components/ui/notification-dialog";
 
 interface Room {
   id: number;
@@ -15,60 +18,19 @@ interface Room {
   last_updated: string;
 }
 
-// Sample data - replace with actual API calls later
-const initialRooms: Room[] = [
-  {
-    id: 1,
-    name: "2B11",
-    capacity: 50,
-    status: "UNAVAILABLE",
-    description: "",
-    last_updated: "2025-03-01T10:00:00.000+07:00"
-  },
-  {
-    id: 2,
-    name: "2B12",
-    capacity: 50,
-    status: "AVAILABLE",
-    description: "",
-    last_updated: "2025-03-01T10:30:00.000+07:00"
-  },
-  {
-    id: 3,
-    name: "2B21",
-    capacity: 30,
-    status: "AVAILABLE",
-    description: "",
-    last_updated: "2025-03-01T11:00:00.000+07:00"
-  },
-  {
-    id: 4,
-    name: "2B22",
-    capacity: 30,
-    status: "AVAILABLE",
-    description: "",
-    last_updated: "2025-03-02T08:00:00.000+07:00"
-  },
-  {
-    id: 5,
-    name: "2B31",
-    capacity: 50,
-    status: "REPAIRING",
-    description: "",
-    last_updated: "2025-03-01T12:00:00.000+07:00"
-  },
-  {
-    id: 6,
-    name: "2B32",
-    capacity: 50,
-    status: "AVAILABLE",
-    description: "",
-    last_updated: "2025-03-02T09:00:00.000+07:00"
-  }
-];
+const mapRoomResponseToRoom = (room: RoomResponse): Room => ({
+  id: room.id,
+  name: room.name,
+  capacity: room.capacity,
+  status: room.status,
+  description: room.description,
+  last_updated: typeof room.lastUpdated === 'string' ? room.lastUpdated : new Date(room.lastUpdated).toISOString(),
+});
 
 export default function RoomsPage() {
-  const [rooms, setRooms] = useState<Room[]>(initialRooms);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -78,6 +40,28 @@ export default function RoomsPage() {
     status: '',
     name: ''
   });
+  const [successRoom, setSuccessRoom] = useState<Room | null>(null);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | null>(null);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        setLoading(true);
+        const response = await RoomService.getAllRooms();
+        if (response.success) {
+          setRooms(response.data.map(mapRoomResponseToRoom));
+        } else {
+          setError(response.message || 'Không thể tải danh sách phòng học');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải phòng học: ' + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRooms();
+  }, []);
 
   // Extract unique values for filter dropdowns
   const capacityOptions = useMemo(() => 
@@ -168,29 +152,77 @@ export default function RoomsPage() {
     });
   };
 
-  const handleAddRoom = (newRoom: Omit<Room, 'id' | 'last_updated'>) => {
-    setRooms([...rooms, { 
-      ...newRoom, 
-      id: rooms.length + 1,
-      last_updated: new Date().toISOString()
-    }]);
-    setIsAddModalOpen(false);
+  const handleAddRoom = async (newRoom: Omit<Room, 'id' | 'last_updated'>) => {
+    try {
+      const response = await RoomService.createRoom(
+        newRoom.name,
+        newRoom.capacity,
+        newRoom.status,
+        newRoom.description
+      );
+      
+      if (response.success) {
+        const createdRoom = mapRoomResponseToRoom(response.data);
+        setRooms(prev => [...prev, createdRoom]);
+        setSuccessRoom(createdRoom);
+        setActionType('add');
+        setIsSuccessDialogOpen(true);
+        setIsAddModalOpen(false);
+      } else {
+        setError(response.message || 'Có lỗi khi tạo phòng học');
+      }
+    } catch (err) {
+      setError('Có lỗi khi tạo phòng học: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
-  const handleEditRoom = (editedRoom: Room) => {
-    setRooms(rooms.map(room => 
-      room.id === editedRoom.id ? {
-        ...editedRoom,
-        last_updated: new Date().toISOString()
-      } : room
-    ));
-    setIsEditModalOpen(false);
-    setSelectedRoom(null);
+  const handleEditRoom = async (editedRoom: Room) => {
+    try {
+      const response = await RoomService.updateRoom(
+        editedRoom.id.toString(),
+        editedRoom.name,
+        editedRoom.capacity,
+        editedRoom.status,
+        editedRoom.description
+      );
+      
+      if (response.success) {
+        const updatedRoom = mapRoomResponseToRoom(response.data);
+        setRooms(prev => prev.map(room => 
+          room.id === updatedRoom.id ? updatedRoom : room
+        ));
+        setSuccessRoom(updatedRoom);
+        setActionType('edit');
+        setIsSuccessDialogOpen(true);
+        setIsEditModalOpen(false);
+        setSelectedRoom(null);
+      } else {
+        setError(response.message || 'Có lỗi khi cập nhật phòng học');
+      }
+    } catch (err) {
+      setError('Có lỗi khi cập nhật phòng học: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
-  const handleDeleteRoom = (roomId: number) => {
+  const handleDeleteRoom = async (roomId: number) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa phòng học này?")) {
-      setRooms(rooms.filter(room => room.id !== roomId));
+      try {
+        const response = await RoomService.deleteRoom(roomId.toString());
+        if (response.success) {
+          // Update UI after successful deletion
+          const deletedRoom = rooms.find(r => r.id === roomId);
+          setRooms(prev => prev.filter(room => room.id !== roomId));
+          if (deletedRoom) {
+            setSuccessRoom(deletedRoom);
+            setActionType('delete');
+            setIsSuccessDialogOpen(true);
+          }
+        } else {
+          setError(response.message || 'Có lỗi khi xóa phòng học');
+        }
+      } catch (err) {
+        setError('Có lỗi khi xóa phòng học: ' + (err instanceof Error ? err.message : String(err)));
+      }
     }
   };
 
@@ -212,7 +244,7 @@ export default function RoomsPage() {
       case 'AVAILABLE':
         return 'Đang hoạt động';
       case 'REPAIRING':
-        return 'Đang sửa chữa';
+        return 'Đang bảo trì';
       case 'UNAVAILABLE':
         return 'Không hoạt động';
       default:
@@ -231,8 +263,62 @@ export default function RoomsPage() {
     });
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <div className="text-center bg-white rounded-xl shadow p-8 max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-red-600 font-medium mb-4">{error || "Không thể tải dữ liệu"}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
+      {/* Success notification dialog */}
+      {successRoom && (
+        <NotificationDialog
+          isOpen={isSuccessDialogOpen}
+          onClose={() => {
+            setIsSuccessDialogOpen(false);
+            setSuccessRoom(null);
+            setActionType(null);
+          }}
+          title={
+            actionType === 'add' ? "Thêm phòng học thành công!" :
+            actionType === 'edit' ? "Cập nhật phòng học thành công!" :
+            "Xóa phòng học thành công!"
+          }
+          details={{
+            "Mã phòng": successRoom.name,
+            "Sức chứa": `${successRoom.capacity} người`,
+            "Trạng thái": getStatusLabel(successRoom.status),
+            "Mô tả": successRoom.description || "Không có"
+          }}
+        />
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý phòng học</h1>
         <div className="flex items-center gap-4">
@@ -272,6 +358,9 @@ export default function RoomsPage() {
                   Trạng thái
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mô tả
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cập nhật cuối
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -294,6 +383,9 @@ export default function RoomsPage() {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {room.description || "Không có"}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDateTime(room.last_updated)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -303,12 +395,14 @@ export default function RoomsPage() {
                         setIsEditModalOpen(true);
                       }}
                       className="text-blue-600 hover:text-blue-900 mr-4"
+                      title="Chỉnh sửa"
                     >
                       <PencilIcon className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => handleDeleteRoom(room.id)}
                       className="text-red-600 hover:text-red-900"
+                      title="Xóa"
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
