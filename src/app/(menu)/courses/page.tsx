@@ -1,131 +1,72 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
+import CourseService from "@/services/CourseService";
+import SemesterService from "@/services/SemesterService";
+import UserService from "@/services/UserService";
+import SubjectService from "@/services/SubjectService";
+import ClassService from "@/services/ClassService";
+import { CourseResponse, SemesterResponse, LecturerResponse, SemesterWeekResponse, SubjectResponse, ClassResponse } from "@/types/TypeResponse";
+import { NotificationDialog } from "@/components/ui/notification-dialog";
 
 interface Course {
   id: number;
   subject: string;
   semester: string;
   lecturers: string[];
+  groupNumber: number;
+  totalStudents: number;
   class: string;
-  group_number: number;
-  total_students: number;
 }
 
-// Sample data - replace with actual API calls later
-const initialCourses: Course[] = [
-  {
-    id: 1,
-    subject: "Lập trình Web",
-    semester: "Học kỳ 2 - Năm học 2024 - 2025",
-    lecturers: [
-      "Giang Vien 1"
-    ],
-    class: "D22CQCN01-N",
-    group_number: 1,
-    total_students: 80
-  },
-  {
-    id: 2,
-    subject: "An toàn và bảo mật hệ thống thông tin",
-    semester: "Học kỳ 2 - Năm học 2024 - 2025",
-    lecturers: [
-      "Giang Vien 2"
-    ],
-    class: "D22CQCN01-N",
-    group_number: 1,
-    total_students: 80
-  },
-  {
-    id: 3,
-    subject: "Nhập môn công nghệ phần mềm",
-    semester: "Học kỳ 2 - Năm học 2024 - 2025",
-    lecturers: [
-      "Giang Vien 3"
-    ],
-    class: "D22CQCN01-N",
-    group_number: 1,
-    total_students: 80
-  },
-  {
-    id: 4,
-    subject: "Nhập môn trí tuệ nhân tạo",
-    semester: "Học kỳ 2 - Năm học 2024 - 2025",
-    lecturers: [
-      "Giang Vien 4"
-    ],
-    class: "D22CQCN01-N",
-    group_number: 1,
-    total_students: 80
-  },
-  {
-    id: 5,
-    subject: "Cơ sở dữ liệu phân tán",
-    semester: "Học kỳ 2 - Năm học 2024 - 2025",
-    lecturers: [
-      "Giang Vien 5"
-    ],
-    class: "D22CQCN01-N",
-    group_number: 1,
-    total_students: 80
-  },
-  {
-    id: 6,
-    subject: "Thực tập cơ sở",
-    semester: "Học kỳ 2 - Năm học 2024 - 2025",
-    lecturers: [
-      "Giang Vien 1"
-    ],
-    class: "D22CQCN01-N",
-    group_number: 1,
-    total_students: 80
-  },
-  {
-    id: 7,
-    subject: "Kỹ năng tạo lập Văn bản",
-    semester: "Học kỳ 2 - Năm học 2024 - 2025",
-    lecturers: [
-      "Giang Vien 2"
-    ],
-    class: "D22CQCN01-N",
-    group_number: 1,
-    total_students: 80
-  }
-];
-
-// Sample data for lecturers (for dropdown)
-const availableLecturers = [
-  "Giang Vien 1",
-  "Giang Vien 2",
-  "Giang Vien 3",
-  "Giang Vien 4",
-  "Giang Vien 5"
-];
-
-// Sample data for classes (for dropdown)
-const availableClasses = [
-  "D22CQCN01-N",
-  "D22CQCN02-N",
-  "D22CQPT01-N",
-  "D22CQDT01-N"
-];
-
-// Sample data for semesters (for dropdown)
-const availableSemesters = [
-  "Học kỳ 1 - Năm học 2024 - 2025",
-  "Học kỳ 2 - Năm học 2024 - 2025",
-  "Học kỳ 3 - Năm học 2024 - 2025"
-];
+const mapCourseResponseToCourse = (courseResponse: CourseResponse): Course => {
+  console.log('Mapping course response:', courseResponse);
+  return {
+    id: courseResponse.id,
+    subject: courseResponse.subject,
+    semester: courseResponse.semester,
+    lecturers: courseResponse.lecturers || [],
+    groupNumber: courseResponse.groupNumber,
+    totalStudents: courseResponse.totalStudents,
+    class: courseResponse.class,
+  };
+};
 
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>(initialCourses);
+  // State for courses data
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // State for semesters
+  const [semesters, setSemesters] = useState<SemesterResponse[]>([]);
+  const [selectedSemester, setSelectedSemester] = useState<SemesterResponse | null>(null);
+  const [semesterWeeks, setSemesterWeeks] = useState<SemesterWeekResponse[]>([]);
+
+  // State for subjects, classes, lecturers
+  const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
+  const [classes, setClasses] = useState<ClassResponse[]>([]);
+  const [lecturers, setLecturers] = useState<LecturerResponse[]>([]);
+
+  // Additional state for form management
+  const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const [defaultStudentCount, setDefaultStudentCount] = useState<number | null>(null);
+
+  // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+
+  // Success notification states
+  const [successCourse, setSuccessCourse] = useState<Course | null>(null);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | null>(null);
+
+  // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState({
     subject: '',
@@ -134,60 +75,201 @@ export default function CoursesPage() {
     class: ''
   });
 
+  // Add state for selected lecturers
+  const [selectedLecturers, setSelectedLecturers] = useState<LecturerResponse[]>([]);
+  const [lecturerSearchText, setLecturerSearchText] = useState('');
+
+  // Add states for search and selection
+  const [subjectSearchText, setSubjectSearchText] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState<SubjectResponse | null>(null);
+  const [classSearchText, setClassSearchText] = useState('');
+  const [selectedClass, setSelectedClass] = useState<ClassResponse | null>(null);
+
+  // Add focus states
+  const [isSubjectFocused, setIsSubjectFocused] = useState(false);
+  const [isClassFocused, setIsClassFocused] = useState(false);
+  const [isLecturerFocused, setIsLecturerFocused] = useState(false);
+
+  // Load semesters on component mount
+  useEffect(() => {
+    const fetchSemesters = async () => {
+      try {
+        const response = await SemesterService.getAllSemesters();
+        if (response.success) {
+          setSemesters(response.data);
+          // Set current semester as default
+          const currentSemResponse = await SemesterService.getCurrentSemester();
+          if (currentSemResponse.success) {
+            setSelectedSemester(currentSemResponse.data);
+          }
+        } else {
+          setError(response.message || 'Không thể tải danh sách kỳ học');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải kỳ học: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    };
+    fetchSemesters();
+  }, []);
+
+  // Load subjects on component mount
+  useEffect(() => {
+    const fetchSubjects = async () => {
+      try {
+        const response = await SubjectService.getAllSubjects();
+        if (response.success) {
+          setSubjects(response.data);
+        } else {
+          setError(response.message || 'Không thể tải danh sách học phần');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải học phần: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    };
+    fetchSubjects();
+  }, []);
+
+  // Load classes on component mount
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const response = await ClassService.getAllClasses("");
+        if (response.success) {
+          setClasses(response.data);
+        } else {
+          setError(response.message || 'Không thể tải danh sách lớp học');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải lớp học: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    };
+    fetchClasses();
+  }, []);
+
+  // Load courses when selected semester changes
+  useEffect(() => {
+    const fetchCourses = async () => {
+      if (!selectedSemester) return;
+      
+      try {
+        setLoading(true);
+        const response = await CourseService.getAllCoursesBySemesterId(selectedSemester.id.toString());
+        if (response.success) {
+          setCourses(response.data.map(mapCourseResponseToCourse));
+        } else {
+          setError(response.message || 'Không thể tải danh sách học phần');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải học phần: ' + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, [selectedSemester]);
+
+  // Load lecturers on component mount
+  useEffect(() => {
+    const fetchLecturers = async () => {
+      try {
+        const response = await UserService.getAllLecturers();
+        if (response.success) {
+          setLecturers(response.data);
+        } else {
+          setError(response.message || 'Không thể tải danh sách giảng viên');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải giảng viên: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    };
+    fetchLecturers();
+  }, []);
+
+  // Load semester weeks when selected semester changes
+  useEffect(() => {
+    const fetchSemesterWeeks = async () => {
+      if (!selectedSemester) return;
+      
+      try {
+        const response = await SemesterService.getSemesterWeekBySemesterId(selectedSemester.id.toString());
+        if (response.success) {
+          setSemesterWeeks(response.data);
+        } else {
+          setError(response.message || 'Không thể tải danh sách tuần học');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải tuần học: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    };
+    fetchSemesterWeeks();
+  }, [selectedSemester]);
+
+  // Handler for class selection in form
+  const handleClassChange = (classId: number) => {
+    setSelectedClassId(classId);
+    const selectedClass = classes.find(c => c.id === classId);
+    if (selectedClass) {
+      setDefaultStudentCount(selectedClass.numberOfStudents);
+    }
+  };
+
+  // Reset form state when closing modals
+  const resetFormState = () => {
+    setSelectedClassId(null);
+    setDefaultStudentCount(null);
+  };
+
   // Extract unique values for filter dropdowns
   const subjectOptions = useMemo(() => 
-    Array.from(new Set(courses.map(c => c.subject))), [courses]);
+    Array.from(new Set(courses.map(c => c.subject))).sort(), [courses]);
+
+  const classOptions = useMemo(() => 
+    Array.from(new Set(courses.map(c => c.class))).sort(), [courses]);
+
+  const lecturerOptions = useMemo(() => 
+    Array.from(new Set(courses.flatMap(c => c.lecturers))).sort(), [courses]);
 
   const filterOptions = useMemo(() => [
     {
       id: 'subject',
-      label: 'Môn học',
-      type: 'select' as const,
-      value: filters.subject,
-      options: subjectOptions.map(subject => ({ value: subject, label: subject }))
-    },
-    {
-      id: 'semester',
-      label: 'Học kỳ',
-      type: 'select' as const,
-      value: filters.semester,
-      options: availableSemesters.map(semester => ({ value: semester, label: semester }))
+      label: 'Học phần',
+      type: 'search' as const,
+      value: filters.subject || '',
+      placeholder: 'Nhập tên học phần...'
     },
     {
       id: 'lecturer',
       label: 'Giảng viên',
       type: 'select' as const,
       value: filters.lecturer,
-      options: availableLecturers.map(lecturer => ({ value: lecturer, label: lecturer }))
+      options: lecturerOptions.map(lecturer => ({ 
+        value: lecturer, 
+        label: lecturer 
+      }))
     },
     {
       id: 'class',
       label: 'Lớp',
       type: 'select' as const,
       value: filters.class,
-      options: availableClasses.map(cls => ({ value: cls, label: cls }))
+      options: classOptions.map(cls => ({ 
+        value: cls, 
+        label: cls 
+      }))
     }
-  ], [filters, subjectOptions]);
+  ], [filters, lecturerOptions, classOptions]);
 
   // Apply filters
   const filteredCourses = useMemo(() => {
     return courses.filter(course => {
-      // Filter by subject
-      if (filters.subject && course.subject !== filters.subject) {
+      if (filters.subject && !course.subject.toLowerCase().includes(filters.subject.toLowerCase())) {
         return false;
       }
       
-      // Filter by semester
-      if (filters.semester && course.semester !== filters.semester) {
+      if (filters.lecturer && !course.lecturers.some(l => l === filters.lecturer)) {
         return false;
       }
       
-      // Filter by lecturer
-      if (filters.lecturer && !course.lecturers.includes(filters.lecturer)) {
-        return false;
-      }
-      
-      // Filter by class
       if (filters.class && course.class !== filters.class) {
         return false;
       }
@@ -196,7 +278,7 @@ export default function CoursesPage() {
     });
   }, [courses, filters]);
 
-  // Use our pagination hook with filtered data
+  // Use pagination hook with filtered data
   const {
     currentPage,
     pageSize,
@@ -227,9 +309,56 @@ export default function CoursesPage() {
     });
   };
 
-  const handleAddCourse = (newCourse: Omit<Course, 'id'>) => {
-    setCourses([...courses, { ...newCourse, id: courses.length + 1 }]);
-    setIsAddModalOpen(false);
+  const handleAddCourse = async (
+    subjectId: number,
+    classId: number,
+    lecturerIds: number[],
+    totalStudents: number,
+    totalSection: number,
+    startWeekId: number
+  ) => {
+    if (!selectedSemester) {
+      setError('Vui lòng chọn kỳ học');
+      return;
+    }
+
+    try {
+      const payload = {
+        subjectId,
+        classId,
+        lecturersIds: lecturerIds,
+        semesterId: selectedSemester.id,
+        totalStudents,
+        totalSection,
+        startWeekId
+      };
+      console.log('Sending payload:', payload);
+
+      const response = await CourseService.createCourse(payload);
+      console.log('API Response:', response);
+
+      if (response.success) {
+        if (response.data && response.data.course) {
+          const newCourse = mapCourseResponseToCourse(response.data.course);
+          console.log('Mapped new course:', newCourse);
+          setCourses(prev => [...prev, newCourse]);
+          setSuccessCourse(newCourse);
+          setActionType('add');
+          setIsSuccessDialogOpen(true);
+          setIsAddModalOpen(false);
+          resetFormState();
+          resetAllSelections();
+        } else {
+          console.error('Invalid response structure:', response);
+          setError('Định dạng phản hồi không hợp lệ');
+        }
+      } else {
+        setError(response.message || 'Có lỗi khi tạo học phần');
+      }
+    } catch (err) {
+      console.error('Error creating course:', err);
+      setError('Lỗi khi tạo học phần: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   const handleEditCourse = (editedCourse: Course) => {
@@ -240,21 +369,224 @@ export default function CoursesPage() {
     setSelectedCourse(null);
   };
 
-  const handleDeleteCourse = (courseId: number) => {
+  const handleDeleteCourse = async (courseId: number) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa học phần này?")) {
-      setCourses(courses.filter(course => course.id !== courseId));
+      try {
+        const courseToDelete = courses.find(c => c.id === courseId);
+        const response = await CourseService.deleteCourse(courseId);
+        if (response.success) {
+          setCourses(prev => prev.filter(course => course.id !== courseId));
+          if (courseToDelete) {
+            setSuccessCourse(courseToDelete);
+            setActionType('delete');
+            setIsSuccessDialogOpen(true);
+          }
+        } else {
+          setError(response.message || 'Có lỗi khi xóa học phần');
+        }
+      } catch (err) {
+        setError('Lỗi khi xóa học phần: ' + (err instanceof Error ? err.message : String(err)));
+      }
     }
   };
 
-  const getLecturerNames = (lecturers: string[]) => {
-    return lecturers.join(", ");
+  const handleUpdateCourse = async (
+    courseId: number,
+    subjectId: number,
+    classId: number,
+    lecturerIds: number[],
+    totalStudents: number
+  ) => {
+    try {
+      const response = await CourseService.updateCourse(courseId, {
+        subjectId,
+        classId,
+        lecturersIds: lecturerIds,
+        totalStudents
+      });
+
+      if (response.success) {
+        const updatedCourse = mapCourseResponseToCourse(response.data);
+        setCourses(prev => prev.map(course => 
+          course.id === updatedCourse.id ? updatedCourse : course
+        ));
+        setSuccessCourse(updatedCourse);
+        setActionType('edit');
+        setIsSuccessDialogOpen(true);
+        setIsEditModalOpen(false);
+        setSelectedCourse(null);
+      } else {
+        setError(response.message || 'Có lỗi khi cập nhật học phần');
+      }
+    } catch (err) {
+      setError('Lỗi khi cập nhật học phần: ' + (err instanceof Error ? err.message : String(err)));
+    }
   };
+
+  // Function to handle lecturer selection
+  const handleLecturerSelect = (lecturer: LecturerResponse) => {
+    if (!selectedLecturers.find(l => l.id === lecturer.id)) {
+      setSelectedLecturers([...selectedLecturers, lecturer]);
+    }
+    setLecturerSearchText('');
+  };
+
+  // Function to remove lecturer
+  const handleRemoveLecturer = (lecturerId: number) => {
+    setSelectedLecturers(selectedLecturers.filter(l => l.id !== lecturerId));
+  };
+
+  // Filter lecturers based on search text
+  const filteredLecturers = useMemo(() => {
+    return lecturers.filter(
+      l => (!lecturerSearchText || 
+           l.fullName.toLowerCase().includes(lecturerSearchText.toLowerCase()) ||
+           l.code.toLowerCase().includes(lecturerSearchText.toLowerCase())) &&
+           !selectedLecturers.find(sl => sl.id === l.id)
+    );
+  }, [lecturers, lecturerSearchText, selectedLecturers]);
+
+  // Reset lecturer selection when closing modal
+  const resetLecturerSelection = () => {
+    setSelectedLecturers([]);
+    setLecturerSearchText('');
+  };
+
+  // Filter subjects based on search text
+  const filteredSubjects = useMemo(() => {
+    if (!selectedSubject) {
+      return subjects.filter(
+        s => !subjectSearchText || 
+        s.name.toLowerCase().includes(subjectSearchText.toLowerCase()) ||
+        s.code.toLowerCase().includes(subjectSearchText.toLowerCase())
+      );
+    }
+    return [];
+  }, [subjects, subjectSearchText, selectedSubject]);
+
+  // Filter classes based on search text
+  const filteredClasses = useMemo(() => {
+    if (!selectedClass) {
+      return classes.filter(
+        c => !classSearchText || 
+        c.name.toLowerCase().includes(classSearchText.toLowerCase())
+      );
+    }
+    return [];
+  }, [classes, classSearchText, selectedClass]);
+
+  // Reset all selections when closing modal
+  const resetAllSelections = () => {
+    setSelectedSubject(null);
+    setSubjectSearchText('');
+    setSelectedClass(null);
+    setClassSearchText('');
+    setSelectedLecturers([]);
+    setLecturerSearchText('');
+    setIsSubjectFocused(false);
+    setIsClassFocused(false);
+    setIsLecturerFocused(false);
+    resetFormState();
+  };
+
+  // Handle subject selection
+  const handleSubjectSelect = (subject: SubjectResponse) => {
+    setSelectedSubject(subject);
+    setSubjectSearchText('');
+  };
+
+  // Handle class selection
+  const handleClassSelect = (classItem: ClassResponse) => {
+    setSelectedClass(classItem);
+    setClassSearchText('');
+    setDefaultStudentCount(classItem.numberOfStudents);
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <div className="text-center bg-white rounded-xl shadow p-8 max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-red-600 font-medium mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
+      {/* Success notification dialog */}
+      {successCourse && (
+        <NotificationDialog
+          isOpen={isSuccessDialogOpen}
+          onClose={() => {
+            setIsSuccessDialogOpen(false);
+            setSuccessCourse(null);
+            setActionType(null);
+          }}
+          title={
+            actionType === 'add' ? "Thêm học phần thành công!" :
+            actionType === 'edit' ? "Cập nhật học phần thành công!" :
+            "Xóa học phần thành công!"
+          }
+          details={{
+            "Học phần": successCourse.subject,
+            "Kỳ học": successCourse.semester,
+            "Nhóm": successCourse.groupNumber.toString(),
+            "Lớp": successCourse.class,
+            "Giảng viên": successCourse.lecturers.join(", "),
+            "Số sinh viên": `${successCourse.totalStudents} sinh viên`
+          }}
+        />
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý học phần</h1>
         <div className="flex items-center gap-4">
+          {/* Semester selector */}
+          <div className="relative">
+            <select
+              className="appearance-none block w-72 pl-4 pr-10 py-2.5 text-base rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-pointer"
+              value={selectedSemester?.id || ""}
+              onChange={(e) => {
+                const semester = semesters.find(s => s.id === parseInt(e.target.value));
+                setSelectedSemester(semester || null);
+              }}
+            >
+              <option value="">Chọn học kỳ</option>
+              {semesters.map((semester) => (
+                <option key={semester.id} value={semester.id}>
+                  {semester.name} ({new Date(semester.startDate).toLocaleDateString('vi-VN')} - {new Date(semester.endDate).toLocaleDateString('vi-VN')})
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+              </svg>
+            </div>
+          </div>
+
           {/* Filter component */}
           <FilterPanel
             isOpen={isFilterOpen}
@@ -268,6 +600,7 @@ export default function CoursesPage() {
           <button
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            disabled={!selectedSemester}
           >
             <PlusIcon className="w-5 h-5" />
             Thêm học phần
@@ -282,19 +615,16 @@ export default function CoursesPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Môn học
+                  Học phần
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Học kỳ
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Giảng viên
+                  Nhóm
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Lớp
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nhóm
+                  Giảng viên
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Số sinh viên
@@ -311,19 +641,16 @@ export default function CoursesPage() {
                     {course.subject}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {course.semester}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {getLecturerNames(course.lecturers)}
+                    {course.groupNumber}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {course.class}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {course.group_number}
+                    {course.lecturers.join(", ")}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {course.total_students}
+                    {course.totalStudents} sinh viên
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
@@ -332,24 +659,35 @@ export default function CoursesPage() {
                         setIsEditModalOpen(true);
                       }}
                       className="text-blue-600 hover:text-blue-900 mr-4"
+                      title="Chỉnh sửa"
                     >
                       <PencilIcon className="w-5 h-5" />
                     </button>
                     <button
                       onClick={() => handleDeleteCourse(course.id)}
                       className="text-red-600 hover:text-red-900"
+                      title="Xóa"
                     >
                       <TrashIcon className="w-5 h-5" />
                     </button>
                   </td>
                 </tr>
               ))}
+              {paginatedCourses.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
+                    {selectedSemester 
+                      ? "Không có học phần nào trong kỳ học này" 
+                      : "Vui lòng chọn kỳ học để xem danh sách học phần"}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
         
-        {/* Add pagination component */}
-        {courses.length > 0 && (
+        {/* Pagination */}
+        {paginatedCourses.length > 0 && (
           <div className="px-6 py-4 border-t border-gray-200">
             <Pagination
               currentPage={currentPage}
@@ -364,118 +702,283 @@ export default function CoursesPage() {
       </div>
 
       {/* Add Course Modal */}
-      {isAddModalOpen && (
+      {isAddModalOpen && selectedSemester && (
         <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full">
-          <div className="relative top-20 mx-auto p-5 border w-1/2 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-6 border w-2/3 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Thêm học phần mới</h3>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Thêm học phần mới</h3>
+                <button
+                  onClick={() => {
+                    setIsAddModalOpen(false);
+                    resetAllSelections();
+                  }}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 const formData = new FormData(form);
-                
-                // Handle multiple lecturers (if using multi-select)
-                const lecturers = [];
-                const selectedLecturer = formData.get('lecturer') as string;
-                if (selectedLecturer) {
-                  lecturers.push(selectedLecturer);
+
+                if (!selectedSemester) {
+                  alert('Vui lòng chọn kỳ học trước khi tạo học phần');
+                  return;
                 }
                 
-                handleAddCourse({
-                  subject: formData.get('subject') as string,
-                  semester: formData.get('semester') as string,
-                  lecturers: lecturers,
-                  class: formData.get('class') as string,
-                  group_number: parseInt(formData.get('group_number') as string, 10),
-                  total_students: parseInt(formData.get('total_students') as string, 10)
+                if (!selectedSubject) {
+                  alert('Vui lòng chọn môn học');
+                  return;
+                }
+
+                if (!selectedClass) {
+                  alert('Vui lòng chọn lớp');
+                  return;
+                }
+
+                if (selectedLecturers.length === 0) {
+                  alert('Vui lòng chọn ít nhất một giảng viên');
+                  return;
+                }
+
+                const totalStudents = parseInt(formData.get('totalStudents') as string);
+                const totalSection = parseInt(formData.get('totalSection') as string);
+                const startWeekId = parseInt(formData.get('startWeekId') as string);
+
+                if (isNaN(totalStudents) || totalStudents <= 0) {
+                  alert('Số sinh viên không hợp lệ');
+                  return;
+                }
+
+                if (isNaN(totalSection) || totalSection <= 0) {
+                  alert('Số nhóm không hợp lệ');
+                  return;
+                }
+
+                if (isNaN(startWeekId) || startWeekId <= 0) {
+                  alert('Vui lòng chọn tuần bắt đầu');
+                  return;
+                }
+
+                // Log values for debugging
+                console.log('Form values:', {
+                  subjectId: selectedSubject.id,
+                  classId: selectedClass.id,
+                  lecturerIds: selectedLecturers.map(l => l.id),
+                  semesterId: selectedSemester.id,
+                  totalStudents,
+                  totalSection,
+                  startWeekId
                 });
+
+                handleAddCourse(
+                  selectedSubject.id,
+                  selectedClass.id,
+                  selectedLecturers.map(l => l.id),
+                  totalStudents,
+                  totalSection,
+                  startWeekId
+                );
               }}>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
+                  {/* Subject Selection */}
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Môn học</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Môn học</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={subjectSearchText || (selectedSubject ? `${selectedSubject.code} - ${selectedSubject.name}` : '')}
+                        onChange={(e) => {
+                          setSubjectSearchText(e.target.value);
+                          setSelectedSubject(null);
+                        }}
+                        onFocus={() => setIsSubjectFocused(true)}
+                        onBlur={() => {
+                          setTimeout(() => setIsSubjectFocused(false), 200);
+                        }}
+                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                        placeholder="Tìm kiếm môn học theo mã hoặc tên..."
+                      />
+                      {isSubjectFocused && filteredSubjects.length > 0 && !selectedSubject && (
+                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                          <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
+                            <p className="text-sm text-gray-500">Tìm thấy {filteredSubjects.length} môn học</p>
+                          </div>
+                          {filteredSubjects.map(subject => (
+                            <div
+                              key={subject.id}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                              onClick={() => handleSubjectSelect(subject)}
+                            >
+                              <div className="font-medium">{subject.code} - {subject.name}</div>
+                              <div className="text-sm text-gray-500">Số tín chỉ: {subject.totalCredits}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Class Selection */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Lớp</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={classSearchText || (selectedClass ? `${selectedClass.name} (${selectedClass.numberOfStudents} sinh viên)` : '')}
+                        onChange={(e) => {
+                          setClassSearchText(e.target.value);
+                          setSelectedClass(null);
+                        }}
+                        onFocus={() => setIsClassFocused(true)}
+                        onBlur={() => {
+                          setTimeout(() => setIsClassFocused(false), 200);
+                        }}
+                        className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                        placeholder="Tìm kiếm lớp..."
+                      />
+                      {isClassFocused && filteredClasses.length > 0 && !selectedClass && (
+                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                          <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
+                            <p className="text-sm text-gray-500">Tìm thấy {filteredClasses.length} lớp</p>
+                          </div>
+                          {filteredClasses.map(classItem => (
+                            <div
+                              key={classItem.id}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                              onClick={() => handleClassSelect(classItem)}
+                            >
+                              <div className="font-medium">{classItem.name}</div>
+                              <div className="text-sm text-gray-500">
+                                {classItem.type === "MAJOR" ? "Lớp ngành" : "Lớp chuyên ngành"} - {classItem.numberOfStudents} sinh viên
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Lecturer Selection with Tag Input */}
+                  <div className="mb-4 col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Giảng viên
+                      <span className="ml-1 text-sm text-gray-500">(Có thể chọn nhiều)</span>
+                    </label>
+                    <div className="relative">
+                      <div className="flex flex-wrap gap-2 p-2 bg-white rounded-lg border border-gray-300 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                        {selectedLecturers.map(lecturer => (
+                          <div
+                            key={lecturer.id}
+                            className="inline-flex items-center bg-blue-50 text-blue-700 rounded-full px-3 py-1 text-sm"
+                          >
+                            <span>{lecturer.code} - {lecturer.fullName}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveLecturer(lecturer.id)}
+                              className="ml-2 text-blue-500 hover:text-blue-700"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <input
+                          type="text"
+                          value={lecturerSearchText}
+                          onChange={(e) => setLecturerSearchText(e.target.value)}
+                          onFocus={() => setIsLecturerFocused(true)}
+                          onBlur={() => {
+                            setTimeout(() => setIsLecturerFocused(false), 200);
+                          }}
+                          className="flex-1 outline-none min-w-[200px] placeholder:text-gray-400"
+                          placeholder={selectedLecturers.length === 0 ? "Tìm kiếm giảng viên theo mã hoặc tên..." : "Thêm giảng viên..."}
+                        />
+                      </div>
+                      {isLecturerFocused && filteredLecturers.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                          <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
+                            <p className="text-sm text-gray-500">Tìm thấy {filteredLecturers.length} giảng viên</p>
+                          </div>
+                          {filteredLecturers.map(lecturer => (
+                            <div
+                              key={lecturer.id}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                              onClick={() => handleLecturerSelect(lecturer)}
+                            >
+                              <div className="font-medium">{lecturer.code} - {lecturer.fullName}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {selectedLecturers.length === 0 && (
+                      <p className="mt-2 text-sm text-gray-500">Chưa có giảng viên nào được chọn</p>
+                    )}
+                  </div>
+
+                  {/* Other fields remain unchanged */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Số sinh viên</label>
                     <input
-                      type="text"
-                      name="subject"
+                      type="number"
+                      name="totalStudents"
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                      placeholder="Nhập tên môn học"
+                      min="1"
+                      value={defaultStudentCount || ""}
+                      onChange={(e) => setDefaultStudentCount(parseInt(e.target.value))}
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                      placeholder="Nhập số sinh viên"
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Học kỳ</label>
-                    <select
-                      name="semester"
-                      required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 appearance-none bg-white"
-                    >
-                      <option value="">Chọn học kỳ</option>
-                      {availableSemesters.map((semester, index) => (
-                        <option key={index} value={semester}>{semester}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Giảng viên</label>
-                    <select
-                      name="lecturer"
-                      required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 appearance-none bg-white"
-                    >
-                      <option value="">Chọn giảng viên</option>
-                      {availableLecturers.map((lecturer, index) => (
-                        <option key={index} value={lecturer}>{lecturer}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Lớp</label>
-                    <select
-                      name="class"
-                      required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 appearance-none bg-white"
-                    >
-                      <option value="">Chọn lớp</option>
-                      {availableClasses.map((cls, index) => (
-                        <option key={index} value={cls}>{cls}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Nhóm</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Số nhóm</label>
                     <input
                       type="number"
-                      name="group_number"
-                      min="1"
+                      name="totalSection"
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                      min="1"
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
                       placeholder="Nhập số nhóm"
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700">Số sinh viên</label>
-                    <input
-                      type="number"
-                      name="total_students"
-                      min="0"
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Tuần bắt đầu</label>
+                    <select
+                      name="startWeekId"
                       required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                      placeholder="Nhập số lượng sinh viên"
-                    />
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                    >
+                      <option value="">Chọn tuần bắt đầu</option>
+                      {semesterWeeks.map(week => (
+                        <option key={week.id} value={week.id}>
+                          {week.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
+
+                {/* Buttons */}
+                <div className="mt-6 flex justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                    onClick={() => {
+                      setIsAddModalOpen(false);
+                      resetAllSelections();
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     Hủy
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700"
                   >
-                    Thêm
+                    Thêm học phần
                   </button>
                 </div>
               </form>
@@ -507,110 +1010,85 @@ export default function CoursesPage() {
               const form = e.target as HTMLFormElement;
               const formData = new FormData(form);
               
-              // Handle multiple lecturers (if using multi-select)
-              const lecturers = [];
-              const selectedLecturer = formData.get('lecturer') as string;
-              if (selectedLecturer) {
-                lecturers.push(selectedLecturer);
-              }
-              
-              handleEditCourse({
-                ...selectedCourse,
-                subject: formData.get('subject') as string,
-                semester: formData.get('semester') as string,
-                lecturers: lecturers,
-                class: formData.get('class') as string,
-                group_number: parseInt(formData.get('group_number') as string, 10),
-                total_students: parseInt(formData.get('total_students') as string, 10)
-              });
+              handleUpdateCourse(
+                selectedCourse.id,
+                parseInt(formData.get('subjectId') as string),
+                parseInt(formData.get('classId') as string),
+                selectedLecturers.map(l => l.id),
+                parseInt(formData.get('totalStudents') as string)
+              );
             }} className="h-[calc(100%-4rem)] overflow-y-auto pr-2">
               <div className="grid grid-cols-2 gap-3">
-                {/* Thông tin cơ bản */}
-                <div className="col-span-2">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Thông tin cơ bản</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Môn học</label>
-                      <input
-                        type="text"
-                        name="subject"
-                        defaultValue={selectedCourse.subject}
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập tên môn học"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Học kỳ</label>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Học phần</label>
                       <select
-                        name="semester"
-                        defaultValue={selectedCourse.semester}
+                    name="subjectId"
                         required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    defaultValue={subjects.find(s => s.name === selectedCourse.subject)?.id || ""}
+                  >
+                    <option value="">Chọn học phần</option>
+                    {subjects.map(subject => (
+                      <option 
+                        key={subject.id} 
+                        value={subject.id}
                       >
-                        {availableSemesters.map((semester, index) => (
-                          <option key={index} value={semester}>{semester}</option>
+                        {subject.code} - {subject.name}
+                      </option>
                         ))}
                       </select>
                     </div>
-                  </div>
-                </div>
-
-                {/* Thông tin giảng dạy */}
-                <div className="col-span-2">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Thông tin giảng dạy</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Giảng viên</label>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Lớp</label>
                       <select
-                        name="lecturer"
-                        defaultValue={selectedCourse.lecturers[0]}
+                    name="classId"
                         required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    defaultValue={classes.find(c => c.name === selectedCourse.class)?.id || ""}
+                    onChange={(e) => handleClassChange(parseInt(e.target.value))}
+                  >
+                    <option value="">Chọn lớp</option>
+                    {classes.map(cls => (
+                      <option 
+                        key={cls.id} 
+                        value={cls.id}
                       >
-                        {availableLecturers.map((lecturer, index) => (
-                          <option key={index} value={lecturer}>{lecturer}</option>
+                        {cls.name} ({cls.type === "MAJOR" ? "Lớp ngành" : "Lớp chuyên ngành"}) - {cls.numberOfStudents} sinh viên
+                      </option>
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Lớp</label>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Giảng viên</label>
                       <select
-                        name="class"
-                        defaultValue={selectedCourse.class}
+                    name="lecturerIds"
                         required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                    multiple
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                  >
+                    {lecturers.map(lecturer => (
+                      <option 
+                        key={lecturer.id} 
+                        value={lecturer.id}
+                        selected={selectedLecturers.includes(lecturer)}
                       >
-                        {availableClasses.map((cls, index) => (
-                          <option key={index} value={cls}>{cls}</option>
+                        {lecturer.code} - {lecturer.fullName}
+                      </option>
                         ))}
                       </select>
+                  <p className="text-xs text-gray-500 mt-1">Nhấn Ctrl để chọn nhiều giảng viên</p>
                     </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Nhóm</label>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Số sinh viên</label>
                       <input
                         type="number"
-                        name="group_number"
-                        defaultValue={selectedCourse.group_number}
-                        min="1"
+                    name="totalStudents"
                         required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập số nhóm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">Số sinh viên</label>
-                      <input
-                        type="number"
-                        name="total_students"
-                        defaultValue={selectedCourse.total_students}
-                        min="0"
-                        required
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Nhập số lượng sinh viên"
-                      />
-                    </div>
-                  </div>
+                    min="1"
+                    defaultValue={selectedCourse.totalStudents}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="Nhập số sinh viên"
+                  />
                 </div>
               </div>
 
@@ -622,13 +1100,13 @@ export default function CoursesPage() {
                     setIsEditModalOpen(false);
                     setSelectedCourse(null);
                   }}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-gray-500"
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-1 focus:ring-offset-1 focus:ring-blue-500"
+                  className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
                 >
                   Lưu thay đổi
                 </button>

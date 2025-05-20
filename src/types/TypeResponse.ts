@@ -64,7 +64,7 @@ export interface StatisticsResponse {
   totalPendingRequests: number;
 }
 
-export interface Department{
+export interface Department {
   id: number;
   name: string;
 }
@@ -73,21 +73,21 @@ export interface ClassResponse {
   id: number;
   name: string;
   major: string;
-  specialization:string;
-  type: string;
+  specialization: string | null;
+  type: "MAJOR" | "SPECIALIZATION";
   numberOfStudents: number
 }
 
-export interface RoomResponse{
-  id:number;
-  name:string;
-  capacity:number;
+export interface RoomResponse {
+  id: number;
+  name: string;
+  capacity: number;
   status: "AVAILABLE" | "UNAVAILABLE" | "REPAIRING";
   description: string;
   lastUpdated: Date
 }
 
-export interface SubjectResponse{
+export interface SubjectResponse {
   id: number;
   code: string;
   name: string;
@@ -98,3 +98,68 @@ export interface SubjectResponse{
   totalSelfStudyPeriods: number;
 }
 
+
+export interface SpecializationResponse {
+  id: number;
+  name: string;
+}
+
+export interface MajorResponse {
+  id: number;
+  code: string;
+  name: string;
+  specializations: SpecializationResponse[];
+}
+
+export interface SemesterResponse {
+  id: number;
+  code: string;
+  name: string;
+  startDate: Date;
+  endDate: Date;
+}
+
+export interface SemesterWeekResponse {
+  id: number;
+  name: string;
+  startDate: Date;
+  endDate: Date;
+}
+
+
+export interface CourseResponse {
+  id: number;
+  subject: string;
+  semester: string;
+  lecturers: string[];
+  groupNumber: number;
+  totalStudents: number;
+  class: string;
+}
+
+export interface NewCourseResponse {
+  course: CourseResponse;
+  schedules: ScheduleResponse[];
+}
+
+export interface ScheduleResponse {
+  id: number;
+  subjectCode: string;
+  subjectName: string;
+  courseGroup: number;
+  courseSection: number;
+  room: string;
+  dayOfWeek: number;  
+  startPeriod: number;
+  totalPeriod: number;
+  class: string;      
+  lecturer: string;
+  semesterWeek: string;
+  status: string;
+}
+
+export interface CourseSectionResponse{
+  id: number;
+  sectionNumber: number;
+  totalStudentsInSection: number;
+}
