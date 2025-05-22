@@ -38,13 +38,13 @@ class SemesterService {
             name: string,
             startDate: Date,
             endDate: Date,
-            startWeek: Date,
+            startWeek: number,
         }
     ): Promise<DataResponse<SemesterResponse>> {
         const response = await axiosConfig.post("/semester",
             payload)
-        if ((payload.startDate.getDay() !== 1 || payload.endDate.getDay() !== 0)) {
-            throw new Error("Ngày bắt đầu kỳ phải là thứ 2 và ngày kết thúc kỳ phải là chủ nhật");
+        if ((payload.startDate.getDay() !== 1)) {
+            throw new Error("Ngày bắt đầu kỳ phải là thứ 2");
         }
         if (!response.data.success) {
             throw new Error("Lỗi kết nối đến máy chủ :(");

@@ -62,6 +62,13 @@ const menuItems = [
         visible: ["MANAGER", "LECTURER", "STUDENT"],
       },
       {
+        icon: <CalendarIcon className="w-5 h-5" />,
+        label: "Schedule Management",
+        name: "Quản Lý Lịch thực hành",
+        href: "/schedules/manage",
+        visible: ["MANAGER"],
+      },
+      {
         icon: <DocumentTextIcon className="w-5 h-5" />,
         label: "Requests",
         name: "Yêu cầu giảng viên",

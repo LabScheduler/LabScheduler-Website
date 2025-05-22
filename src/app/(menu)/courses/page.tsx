@@ -10,7 +10,7 @@ import SemesterService from "@/services/SemesterService";
 import UserService from "@/services/UserService";
 import SubjectService from "@/services/SubjectService";
 import ClassService from "@/services/ClassService";
-import { CourseResponse, SemesterResponse, LecturerResponse, SemesterWeekResponse, SubjectResponse, ClassResponse } from "@/types/TypeResponse";
+import { CourseResponse, SemesterResponse, LecturerResponse, SemesterWeekResponse, SubjectResponse, ClassResponse, CourseSectionResponse } from "@/types/TypeResponse";
 import { NotificationDialog } from "@/components/ui/notification-dialog";
 
 interface Course {
@@ -89,6 +89,17 @@ export default function CoursesPage() {
   const [isSubjectFocused, setIsSubjectFocused] = useState(false);
   const [isClassFocused, setIsClassFocused] = useState(false);
   const [isLecturerFocused, setIsLecturerFocused] = useState(false);
+
+  // Add new semester modal states
+  const [isAddSemesterModalOpen, setIsAddSemesterModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSuccessNotificationOpen, setIsSuccessNotificationOpen] = useState(false);
+
+  // Add course detail modal states
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedCourseDetail, setSelectedCourseDetail] = useState<CourseResponse | null>(null);
+  const [courseSections, setCourseSections] = useState<CourseSectionResponse[]>([]);
+  const [isLoadingSections, setIsLoadingSections] = useState(false);
 
   // Load semesters on component mount
   useEffect(() => {
@@ -345,7 +356,7 @@ export default function CoursesPage() {
           setSuccessCourse(newCourse);
           setActionType('add');
           setIsSuccessDialogOpen(true);
-          setIsAddModalOpen(false);
+    setIsAddModalOpen(false);
           resetFormState();
           resetAllSelections();
         } else {
@@ -374,6 +385,7 @@ export default function CoursesPage() {
       try {
         const courseToDelete = courses.find(c => c.id === courseId);
         const response = await CourseService.deleteCourse(courseId);
+        console.log( "JSUSCRY"+ response)
         if (response.success) {
           setCourses(prev => prev.filter(course => course.id !== courseId));
           if (courseToDelete) {
@@ -502,6 +514,23 @@ export default function CoursesPage() {
     setDefaultStudentCount(classItem.numberOfStudents);
   };
 
+  // Function to handle viewing course details
+  const handleViewCourseDetail = async (course: Course) => {
+    setSelectedCourseDetail(course);
+    setIsDetailModalOpen(true);
+    setIsLoadingSections(true);
+    try {
+      const response = await CourseService.getSectionByCourseId(course.id);
+      if (response.success) {
+        setCourseSections(response.data);
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Có lỗi xảy ra khi tải thông tin nhóm');
+    } finally {
+      setIsLoadingSections(false);
+    }
+  };
+
   // Show loading state
   if (loading) {
     return (
@@ -566,9 +595,13 @@ export default function CoursesPage() {
           {/* Semester selector */}
           <div className="relative">
             <select
-              className="appearance-none block w-72 pl-4 pr-10 py-2.5 text-base rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-pointer"
+              className="appearance-none block w-127 pl-4 pr-10 py-2.5 text-base rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm cursor-pointer"
               value={selectedSemester?.id || ""}
               onChange={(e) => {
+                if (e.target.value === "add_new") {
+                  setIsAddSemesterModalOpen(true);
+                  return;
+                }
                 const semester = semesters.find(s => s.id === parseInt(e.target.value));
                 setSelectedSemester(semester || null);
               }}
@@ -579,6 +612,8 @@ export default function CoursesPage() {
                   {semester.name} ({new Date(semester.startDate).toLocaleDateString('vi-VN')} - {new Date(semester.endDate).toLocaleDateString('vi-VN')})
                 </option>
               ))}
+              <option value="" disabled>──────────</option>
+              <option value="add_new">+ Thêm học kỳ mới</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
               <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
@@ -636,7 +671,11 @@ export default function CoursesPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedCourses.map((course) => (
-                <tr key={course.id}>
+                <tr 
+                  key={course.id}
+                  onClick={() => handleViewCourseDetail(course)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {course.subject}
                   </td>
@@ -654,7 +693,8 @@ export default function CoursesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedCourse(course);
                         setIsEditModalOpen(true);
                       }}
@@ -664,7 +704,10 @@ export default function CoursesPage() {
                       <PencilIcon className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => handleDeleteCourse(course.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCourse(course.id);
+                      }}
                       className="text-red-600 hover:text-red-900"
                       title="Xóa"
                     >
@@ -724,7 +767,7 @@ export default function CoursesPage() {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 const formData = new FormData(form);
-
+                
                 if (!selectedSemester) {
                   alert('Vui lòng chọn kỳ học trước khi tạo học phần');
                   return;
@@ -789,8 +832,8 @@ export default function CoursesPage() {
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Môn học</label>
                     <div className="relative">
-                      <input
-                        type="text"
+                    <input
+                      type="text"
                         value={subjectSearchText || (selectedSubject ? `${selectedSubject.code} - ${selectedSubject.name}` : '')}
                         onChange={(e) => {
                           setSubjectSearchText(e.target.value);
@@ -807,7 +850,7 @@ export default function CoursesPage() {
                         <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
                           <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
                             <p className="text-sm text-gray-500">Tìm thấy {filteredSubjects.length} môn học</p>
-                          </div>
+                  </div>
                           {filteredSubjects.map(subject => (
                             <div
                               key={subject.id}
@@ -818,7 +861,7 @@ export default function CoursesPage() {
                               <div className="text-sm text-gray-500">Số tín chỉ: {subject.totalCredits}</div>
                             </div>
                           ))}
-                        </div>
+                  </div>
                       )}
                     </div>
                   </div>
@@ -858,7 +901,7 @@ export default function CoursesPage() {
                               </div>
                             </div>
                           ))}
-                        </div>
+                  </div>
                       )}
                     </div>
                   </div>
@@ -879,7 +922,10 @@ export default function CoursesPage() {
                             <span>{lecturer.code} - {lecturer.fullName}</span>
                             <button
                               type="button"
-                              onClick={() => handleRemoveLecturer(lecturer.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveLecturer(lecturer.id);
+                              }}
                               className="ml-2 text-blue-500 hover:text-blue-700"
                             >
                               ×
@@ -897,7 +943,7 @@ export default function CoursesPage() {
                           className="flex-1 outline-none min-w-[200px] placeholder:text-gray-400"
                           placeholder={selectedLecturers.length === 0 ? "Tìm kiếm giảng viên theo mã hoặc tên..." : "Thêm giảng viên..."}
                         />
-                      </div>
+                  </div>
                       {isLecturerFocused && filteredLecturers.length > 0 && (
                         <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
                           <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
@@ -907,7 +953,10 @@ export default function CoursesPage() {
                             <div
                               key={lecturer.id}
                               className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
-                              onClick={() => handleLecturerSelect(lecturer)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleLecturerSelect(lecturer);
+                              }}
                             >
                               <div className="font-medium">{lecturer.code} - {lecturer.fullName}</div>
                             </div>
@@ -959,14 +1008,15 @@ export default function CoursesPage() {
                         </option>
                       ))}
                     </select>
-                  </div>
+                </div>
                 </div>
 
                 {/* Buttons */}
                 <div className="mt-6 flex justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setIsAddModalOpen(false);
                       resetAllSelections();
                     }}
@@ -994,7 +1044,8 @@ export default function CoursesPage() {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Chỉnh sửa thông tin học phần</h3>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setIsEditModalOpen(false);
                   setSelectedCourse(null);
                 }}
@@ -1084,7 +1135,7 @@ export default function CoursesPage() {
                         type="number"
                     name="totalStudents"
                         required
-                    min="1"
+                        min="1"
                     defaultValue={selectedCourse.totalStudents}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
                     placeholder="Nhập số sinh viên"
@@ -1096,7 +1147,8 @@ export default function CoursesPage() {
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setIsEditModalOpen(false);
                     setSelectedCourse(null);
                   }}
@@ -1113,6 +1165,228 @@ export default function CoursesPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Add Semester Modal */}
+      {isAddSemesterModalOpen && (
+        <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-1/2 shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Thêm học kỳ mới</h3>
+              <button
+                onClick={() => setIsAddSemesterModalOpen(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const form = e.target as HTMLFormElement;
+              const formData = new FormData(form);
+
+              const code = formData.get('code') as string;
+              const name = formData.get('name') as string;
+              const startDate = new Date(formData.get('startDate') as string);
+              const endDate = new Date(formData.get('endDate') as string);
+              const startWeek = parseInt(formData.get('startWeek') as string);
+
+              try {
+                const response = await SemesterService.createSemester({
+                  code,
+                  name,
+                  startDate,
+                  endDate,
+                  startWeek,
+                });
+
+                if (response.success) {
+                  setSemesters([...semesters, response.data]);
+                  setSelectedSemester(response.data);
+                  setIsAddSemesterModalOpen(false);
+                  // Show success notification
+                  setSuccessMessage("Thêm học kỳ mới thành công!");
+                  setIsSuccessNotificationOpen(true);
+                }
+              } catch (error) {
+                setError(error instanceof Error ? error.message : 'Có lỗi xảy ra khi tạo học kỳ mới');
+              }
+            }}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Mã học kỳ</label>
+                  <input
+                    type="text"
+                    name="code"
+                        required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="VD: 20231"
+                      />
+                    </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Tên học kỳ</label>
+                      <input
+                    type="text"
+                    name="name"
+                        required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="VD: Học kỳ 1 năm 2023-2024"
+                      />
+                    </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Ngày bắt đầu</label>
+                  <input
+                    type="date"
+                    name="startDate"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                  />
+                  </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Ngày kết thúc</label>
+                  <input
+                    type="date"
+                    name="endDate"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">Tuần bắt đầu</label>
+                  <input
+                    type="number"
+                    name="startWeek"
+                    required
+                    min="1"
+                    max="15"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    placeholder="VD: 1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Nhập số thứ tự tuần (1-15)</p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddSemesterModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700"
+                >
+                  Thêm học kỳ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Course Detail Modal */}
+      {isDetailModalOpen && selectedCourseDetail && (
+        <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-2/3 shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Chi tiết học phần</h3>
+              <button
+                onClick={() => {
+                  setIsDetailModalOpen(false);
+                  setSelectedCourseDetail(null);
+                  setCourseSections([]);
+                }}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <h4 className="font-medium text-gray-700">Thông tin chung</h4>
+                <div className="mt-2 space-y-2">
+                  <p><span className="text-gray-600">Học phần:</span> {selectedCourseDetail.subject}</p>
+                  <p><span className="text-gray-600">Kỳ học:</span> {selectedCourseDetail.semester}</p>
+                  <p><span className="text-gray-600">Nhóm:</span> {selectedCourseDetail.groupNumber}</p>
+                  <p><span className="text-gray-600">Lớp:</span> {selectedCourseDetail.class}</p>
+                  <p><span className="text-gray-600">Tổng số sinh viên:</span> {selectedCourseDetail.totalStudents}</p>
+                  <p><span className="text-gray-600">Giảng viên:</span> {selectedCourseDetail.lecturers.join(", ")}</p>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-medium text-gray-700">Danh sách nhóm thực hành</h4>
+                {isLoadingSections ? (
+                  <div className="flex justify-center items-center h-32">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                  </div>
+                ) : courseSections.length > 0 ? (
+                  <div className="mt-2 space-y-2">
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nhóm</th>
+                            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Số sinh viên</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {courseSections.map((section) => (
+                            <tr key={section.id}>
+                              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                Nhóm {section.sectionNumber}
+                              </td>
+                              <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                                {section.totalStudentsInSection} sinh viên
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-500 mt-2">Chưa có nhóm thực hành nào</p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => {
+                  setIsDetailModalOpen(false);
+                  setSelectedCourseDetail(null);
+                  setCourseSections([]);
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Notification */}
+      {isSuccessNotificationOpen && (
+        <div className="fixed bottom-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-50 flex items-center justify-between">
+          <span>{successMessage}</span>
+          <button
+            onClick={() => setIsSuccessNotificationOpen(false)}
+            className="ml-4 text-green-700 hover:text-green-900"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
     </div>

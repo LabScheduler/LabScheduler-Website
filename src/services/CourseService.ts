@@ -48,7 +48,7 @@ class CourseService{
         const response = await axiosConfig.delete(`/course/${courseId}`);
         if(!response.data.success)
             throw new Error("Lỗi kết nối đến máy chủ :(");
-        return response.data.message;
+        return response.data
     }
 
     async getSectionByCourseId(courseId: number): Promise<DataResponse<CourseSectionResponse[]>> {

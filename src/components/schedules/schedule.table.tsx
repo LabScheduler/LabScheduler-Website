@@ -68,8 +68,8 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
   };
 
   const getWeekdayName = (day: number) => {
-    const days = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
-    return days[day % 7];
+    const days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
+    return days[(day-2+7) % 7];
   };
 
   const getPeriodTime = (period: number) => {

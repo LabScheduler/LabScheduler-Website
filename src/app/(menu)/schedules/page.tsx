@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ScheduleTable, ScheduleItem } from '@/components/schedules/schedule.table';
 import { ScheduleGrid } from '@/components/schedules/schedule.grid';
 import { 
@@ -9,9 +9,15 @@ import {
   ChevronLeftIcon, 
   ChevronRightIcon,
   FunnelIcon,
-  XMarkIcon
+  XMarkIcon,
+  Cog6ToothIcon
 } from '@heroicons/react/24/outline';
 import { FilterPanel } from '@/components/ui/filter-panel';
+import Link from 'next/link';
+import AuthService from '@/services/AuthService';
+import ScheduleService from '@/services/ScheduleService';
+import SemesterService from '@/services/SemesterService';
+import { ScheduleResponse, SemesterResponse, SemesterWeekResponse } from '@/types/TypeResponse';
 
 // Sample schedule data matching the backend ScheduleResponse format
 const sampleSchedules: ScheduleItem[] = [
@@ -102,9 +108,26 @@ interface Filters {
   status: string;
 }
 
+// Helper function to map ScheduleResponse to ScheduleItem
+const mapScheduleResponseToScheduleItem = (schedule: ScheduleResponse): ScheduleItem => ({
+  id: schedule.id,
+  subject_code: schedule.subjectCode || '',
+  subject_name: schedule.subjectName || '',
+  course_group: schedule.courseGroup || 1,
+  course_section: schedule.courseSection || 1,
+  room: schedule.room || '',
+  semester_week: schedule.semesterWeek || '',
+  day_of_week: schedule.dayOfWeek,
+  start_period: schedule.startPeriod,
+  total_period: schedule.totalPeriod,
+  class: schedule.class || '',
+  lecturer: schedule.lecturer || '',
+  status: schedule.status || 'PENDING'
+});
+
 export default function SchedulesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [selectedWeek, setSelectedWeek] = useState<string>("Tuần 36");
+  const [selectedWeek, setSelectedWeek] = useState<string>("");
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -116,23 +139,103 @@ export default function SchedulesPage() {
     status: ''
   });
 
-  const weeks = Array.from(new Set(sampleSchedules.map(s => s.semester_week)));
-  
+  // State for data
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentSemester, setCurrentSemester] = useState<SemesterResponse | null>(null);
+  const [semesterWeeks, setSemesterWeeks] = useState<SemesterWeekResponse[]>([]);
+
+  // Load current semester and its weeks
+  useEffect(() => {
+    const fetchSemesterData = async () => {
+      try {
+        const semesterResponse = await SemesterService.getCurrentSemester();
+        if (semesterResponse.success) {
+          setCurrentSemester(semesterResponse.data);
+          
+          // Fetch semester weeks
+          const weeksResponse = await SemesterService.getSemesterWeekBySemesterId(
+            semesterResponse.data.id.toString()
+          );
+          
+          if (weeksResponse.success) {
+            setSemesterWeeks(weeksResponse.data);
+            if (weeksResponse.data.length > 0) {
+              setSelectedWeek(weeksResponse.data[0].name);
+            }
+          }
+        }
+      } catch (err) {
+        setError('Lỗi khi tải thông tin kỳ học: ' + (err instanceof Error ? err.message : String(err)));
+      }
+    };
+    
+    fetchSemesterData();
+  }, []);
+
+  // Load schedules based on user role
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      if (!currentSemester) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const role = AuthService.getRole();
+        const userId = AuthService.getUserId();
+        
+        let response;
+        
+        switch (role) {
+          case 'LECTURER':
+            if (userId) {
+              response = await ScheduleService.getscheduleByLecturerId(currentSemester.id, userId);
+            }
+            break;
+          case 'STUDENT':
+            // Assuming we have a class ID for the student, we would use:
+            // response = await ScheduleService.getscheduleByClassId(currentSemester.id, classId);
+            response = await ScheduleService.getscheduleBySemesterId(currentSemester.id);
+            break;
+          case 'MANAGER':
+          default:
+            response = await ScheduleService.getscheduleBySemesterId(currentSemester.id);
+            break;
+        }
+        
+        if (response && response.success) {
+          const mappedSchedules = response.data.map(mapScheduleResponseToScheduleItem);
+          setSchedules(mappedSchedules);
+        } else {
+          setError('Không thể tải danh sách lịch học');
+        }
+      } catch (err) {
+        setError('Lỗi khi tải lịch học: ' + (err instanceof Error ? err.message : String(err)));
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchSchedules();
+  }, [currentSemester]);
+
   // Extract unique values for filter dropdowns
   const uniqueSubjects = useMemo(() => 
-    Array.from(new Set(sampleSchedules.map(s => s.subject_name))), []);
+    Array.from(new Set(schedules.map(s => s.subject_name))).sort(), [schedules]);
   
   const uniqueLecturers = useMemo(() => 
-    Array.from(new Set(sampleSchedules.map(s => s.lecturer))), []);
+    Array.from(new Set(schedules.map(s => s.lecturer))).sort(), [schedules]);
   
   const uniqueClasses = useMemo(() => 
-    Array.from(new Set(sampleSchedules.map(s => s.class))), []);
+    Array.from(new Set(schedules.map(s => s.class))).sort(), [schedules]);
     
   const uniqueRooms = useMemo(() => 
-    Array.from(new Set(sampleSchedules.map(s => s.room))), []);
+    Array.from(new Set(schedules.map(s => s.room))).sort(), [schedules]);
 
   const statuses = useMemo(() => 
-    ["COMPLETED", "IN_PROGRESS", "CANCELLED"], []);
+    ["COMPLETED", "IN_PROGRESS", "CANCELLED", "PENDING"], []);
 
   const filterOptions = useMemo(() => [
     {
@@ -172,56 +275,18 @@ export default function SchedulesPage() {
         value: status, 
         label: status === 'COMPLETED' ? 'Hoàn thành' : 
                status === 'IN_PROGRESS' ? 'Đang diễn ra' : 
-               status === 'CANCELLED' ? 'Đã hủy' : status
+               status === 'CANCELLED' ? 'Đã hủy' :
+               status === 'PENDING' ? 'Chờ xử lý' : status
       }))
     }
   ], [filters, uniqueSubjects, uniqueLecturers, uniqueClasses, uniqueRooms, statuses]);
 
-  const handleViewScheduleDetails = (schedule: ScheduleItem) => {
-    setSelectedSchedule(schedule);
-    setIsDetailModalOpen(true);
-  };
-
-  const navigateWeek = (direction: 'prev' | 'next') => {
-    if (selectedWeek === 'all') {
-      // If 'all' is selected, select the first week when navigating
-      setSelectedWeek(weeks[0]);
-      return;
-    }
-    
-    const currentIndex = weeks.indexOf(selectedWeek);
-    if (currentIndex === -1) return;
-    
-    if (direction === 'prev' && currentIndex > 0) {
-      setSelectedWeek(weeks[currentIndex - 1]);
-    } else if (direction === 'next' && currentIndex < weeks.length - 1) {
-      setSelectedWeek(weeks[currentIndex + 1]);
-    }
-  };
-
-  const handleFilterChange = (filterId: string, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterId]: value
-    }));
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      subject: '',
-      lecturer: '',
-      class: '',
-      room: '',
-      status: ''
-    });
-  };
-
+  // Filter schedules based on selected filters and week
   const filteredSchedules = useMemo(() => {
     let results = selectedWeek === 'all' 
-      ? sampleSchedules 
-      : sampleSchedules.filter(schedule => schedule.semester_week === selectedWeek);
+      ? schedules 
+      : schedules.filter(schedule => schedule.semester_week === selectedWeek);
     
-    // Apply additional filters
     if (filters.subject) {
       results = results.filter(schedule => schedule.subject_name === filters.subject);
     }
@@ -243,7 +308,79 @@ export default function SchedulesPage() {
     }
     
     return results;
-  }, [selectedWeek, filters, sampleSchedules]);
+  }, [schedules, selectedWeek, filters]);
+
+  const handleViewScheduleDetails = (schedule: ScheduleItem) => {
+    setSelectedSchedule(schedule);
+    setIsDetailModalOpen(true);
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    if (selectedWeek === 'all') {
+      // If 'all' is selected, select the first week when navigating
+      if (semesterWeeks.length > 0) {
+        setSelectedWeek(semesterWeeks[0].name);
+      }
+      return;
+    }
+    
+    const currentIndex = semesterWeeks.findIndex(week => week.name === selectedWeek);
+    if (currentIndex === -1) return;
+    
+    if (direction === 'prev' && currentIndex > 0) {
+      setSelectedWeek(semesterWeeks[currentIndex - 1].name);
+    } else if (direction === 'next' && currentIndex < semesterWeeks.length - 1) {
+      setSelectedWeek(semesterWeeks[currentIndex + 1].name);
+    }
+  };
+
+  const handleFilterChange = (filterId: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterId]: value
+    }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      subject: '',
+      lecturer: '',
+      class: '',
+      room: '',
+      status: ''
+    });
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-6">
+        <div className="text-center bg-white rounded-xl shadow p-8 max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <p className="text-red-600 font-medium mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Thử lại
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
@@ -254,7 +391,7 @@ export default function SchedulesPage() {
           <div className="flex items-center">
             <button
               onClick={() => navigateWeek('prev')}
-              disabled={selectedWeek === 'all' || weeks.indexOf(selectedWeek) === 0}
+              disabled={selectedWeek === 'all' || semesterWeeks.findIndex(w => w.name === selectedWeek) === 0}
               className="p-1 rounded-md text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Tuần trước"
             >
@@ -266,21 +403,34 @@ export default function SchedulesPage() {
               onChange={(e) => setSelectedWeek(e.target.value)}
               className="mx-2 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             >
-              {weeks.map(week => (
-                <option key={week} value={week}>{week}</option>
+              {semesterWeeks.map(week => (
+                <option key={week.id} value={week.name}>
+                  {week.name} ({new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')})
+                </option>
               ))}
               <option value="all">Tất cả</option>
             </select>
             
             <button
               onClick={() => navigateWeek('next')}
-              disabled={selectedWeek === 'all' || weeks.indexOf(selectedWeek) === weeks.length - 1}
+              disabled={selectedWeek === 'all' || semesterWeeks.findIndex(w => w.name === selectedWeek) === semesterWeeks.length - 1}
               className="p-1 rounded-md text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Tuần sau"
             >
               <ChevronRightIcon className="w-5 h-5" />
             </button>
           </div>
+          
+          {/* Management link - only for managers */}
+          {AuthService.getRole() === "MANAGER" && (
+            <Link 
+              href="/schedules/manage"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Cog6ToothIcon className="w-5 h-5" />
+              Quản lý lịch học
+            </Link>
+          )}
           
           {/* Filter panel component */}
           <FilterPanel

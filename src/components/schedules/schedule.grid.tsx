@@ -12,6 +12,8 @@ interface ScheduleGridProps {
 // Extended ScheduleItem interface for internal use
 interface ExtendedScheduleItem extends ScheduleItem {
   _isContinuation?: boolean;
+  _isOverlapped?: boolean;
+  _overlappedSchedules?: ScheduleItem[];
 }
 
 export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
@@ -21,12 +23,18 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
   onChangeWeek
 }) => {
   // Define grid constants
-  const DAYS_OF_WEEK = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+  const DAYS_OF_WEEK = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
   const PERIODS = Array.from({ length: 10 }, (_, i) => i + 1);
   const PERIOD_TIMES = [
     "07:00 - 07:50", "07:50 - 08:40", "08:40 - 09:30", "09:30 - 10:20", "10:20 - 11:10",
     "13:00 - 13:50", "13:50 - 14:40", "14:40 - 15:30", "15:30 - 16:20", "16:20 - 17:10"
   ];
+
+  // Helper function to convert backend day (2-8) to grid index (0-6)
+  const convertDayToIndex = (backendDay: number): number => {
+    // Backend: 2-8 (Mon-Sun) -> Grid: 0-6 (Mon-Sun)
+    return ((backendDay-2+7) % 7);
+  };
 
   // Filter schedules by the specified week if provided
   const filteredSchedules = useMemo(() => {
@@ -41,19 +49,51 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
       .fill(null)
       .map(() => Array(PERIODS.length).fill(null));
 
-    // Place schedules in the grid
+    // Group schedules by day and period
+    const schedulesByDayAndPeriod: { [key: string]: ScheduleItem[] } = {};
+    
     filteredSchedules.forEach(schedule => {
-      const dayIndex = schedule.day_of_week % 7;
+      const dayIndex = convertDayToIndex(schedule.day_of_week);
       const startPeriod = schedule.start_period - 1; // 0-based index
       
-      // Place the schedule in the starting period cell
-      grid[dayIndex][startPeriod] = schedule;
+      for (let i = 0; i < schedule.total_period; i++) {
+        const period = startPeriod + i;
+        const key = `${dayIndex}-${period}`;
+        if (!schedulesByDayAndPeriod[key]) {
+          schedulesByDayAndPeriod[key] = [];
+        }
+        schedulesByDayAndPeriod[key].push(schedule);
+      }
+    });
+
+    // Place schedules in the grid
+    filteredSchedules.forEach(schedule => {
+      const dayIndex = convertDayToIndex(schedule.day_of_week);
+      const startPeriod = schedule.start_period - 1; // 0-based index
       
-      // Mark consecutive periods as occupied by setting them to a special value
-      // (we'll skip rendering these when we detect they're part of a multi-period schedule)
+      // Check for overlapping schedules
+      const key = `${dayIndex}-${startPeriod}`;
+      const overlappingSchedules = schedulesByDayAndPeriod[key] || [];
+      const hasOverlap = overlappingSchedules.length > 1;
+      
+      // Place the schedule in the starting period cell
+      grid[dayIndex][startPeriod] = {
+        ...schedule,
+        _isOverlapped: hasOverlap,
+        _overlappedSchedules: hasOverlap ? overlappingSchedules : undefined
+      };
+      
+      // Mark consecutive periods as occupied
       for (let i = 1; i < schedule.total_period; i++) {
         if (startPeriod + i < PERIODS.length) {
-          grid[dayIndex][startPeriod + i] = { ...schedule, _isContinuation: true };
+          const nextKey = `${dayIndex}-${startPeriod + i}`;
+          const nextOverlappingSchedules = schedulesByDayAndPeriod[nextKey] || [];
+          grid[dayIndex][startPeriod + i] = {
+            ...schedule,
+            _isContinuation: true,
+            _isOverlapped: nextOverlappingSchedules.length > 1,
+            _overlappedSchedules: nextOverlappingSchedules.length > 1 ? nextOverlappingSchedules : undefined
+          };
         }
       }
     });
@@ -67,17 +107,53 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
   };
 
   // Get appropriate color for schedule based on status
-  const getScheduleColor = (schedule: ScheduleItem): string => {
-    switch (schedule.status.toUpperCase()) {
-      case 'COMPLETED':
-        return 'bg-green-100 border-green-300 text-green-800';
-      case 'CANCELLED':
-        return 'bg-red-100 border-red-300 text-red-800';
-      case 'IN_PROGRESS':
-        return 'bg-yellow-100 border-yellow-300 text-yellow-800';
-      default:
-        return 'bg-gray-100 border-gray-300 text-gray-800';
-    }
+  const getScheduleColor = (schedule: ScheduleItem, isOverlapped: boolean = false): string => {
+    const baseColors = {
+      COMPLETED: 'bg-green-100 border-green-300 text-green-800',
+      CANCELLED: 'bg-red-100 border-red-300 text-red-800',
+      IN_PROGRESS: 'bg-yellow-100 border-yellow-300 text-yellow-800',
+      PENDING: 'bg-gray-100 border-gray-300 text-gray-800'
+    };
+
+    const overlappedColors = {
+      COMPLETED: 'bg-green-50 border-green-200 text-green-700',
+      CANCELLED: 'bg-red-50 border-red-200 text-red-700',
+      IN_PROGRESS: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+      PENDING: 'bg-gray-50 border-gray-200 text-gray-700'
+    };
+
+    const colors = isOverlapped ? overlappedColors : baseColors;
+    return colors[schedule.status as keyof typeof colors] || colors.PENDING;
+  };
+
+  // Render overlapped schedules
+  const renderOverlappedSchedules = (schedules: ScheduleItem[]) => {
+    return (
+      <div className="flex flex-col gap-1">
+        {schedules.map((schedule, index) => (
+          <div
+            key={schedule.id}
+            className={`p-2 text-xs border rounded ${getScheduleColor(schedule, true)} ${onViewDetails ? 'cursor-pointer hover:opacity-80' : ''}`}
+            onClick={() => onViewDetails && onViewDetails(schedule)}
+          >
+            <div className="font-medium truncate">{schedule.subject_name}</div>
+            <div className="text-xs text-gray-600 truncate">{schedule.subject_code}</div>
+            <div className="mt-1 flex flex-col space-y-1">
+              <div className="truncate">GV: {schedule.lecturer}</div>
+              <div className="truncate">Phòng: {schedule.room}</div>
+              <div className="truncate">Lớp: {schedule.class}</div>
+              <div className="truncate">Nhóm {schedule.course_group} - Buổi {schedule.course_section}</div>
+              {schedule.status === 'IN_PROGRESS' && (
+                <div className="flex items-center text-yellow-600 mt-1">
+                  <ClockIcon className="h-3 w-3 mr-1" />
+                  <span>Đang diễn ra</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -129,7 +205,6 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
             </tr>
           </thead>
 
-          {/* Grid body with periods and schedules */}
           <tbody>
             {PERIODS.map((period, periodIndex) => (
               <tr key={period} className={periodIndex === 4 ? 'border-b-2 border-gray-300' : ''}>
@@ -143,7 +218,7 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
 
                 {/* Day cells */}
                 {DAYS_OF_WEEK.map((_, dayIndex) => {
-                  const schedule = scheduleGrid[dayIndex][periodIndex];
+                  const schedule = scheduleGrid[dayIndex][periodIndex] as ExtendedScheduleItem;
                   const isStart = isScheduleStart(schedule);
                   
                   // Skip rendering for continuation cells
@@ -158,27 +233,31 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
                       className="border-r border-b border-gray-200 last:border-r-0"
                       rowSpan={isStart && schedule ? schedule.total_period : 1}
                     >
-                      {isStart && schedule ? (
-                        <div 
-                          className={`h-full p-2 text-xs border rounded m-1 ${getScheduleColor(schedule)} ${onViewDetails ? 'cursor-pointer hover:opacity-80' : ''}`}
-                          onClick={() => onViewDetails && onViewDetails(schedule)}
-                        >
-                          <div className="font-medium truncate">{schedule.subject_name}</div>
-                          <div className="text-xs text-gray-600 truncate">{schedule.subject_code}</div>
-                          <div className="mt-1 flex flex-col space-y-1">
-                            <div className="truncate">GV: {schedule.lecturer}</div>
-                            <div className="truncate">Phòng: {schedule.room}</div>
-                            <div className="truncate">Lớp: {schedule.class}</div>
-                            <div className="truncate">Nhóm {schedule.course_group} - Buổi {schedule.course_section}</div>
-                            {schedule.status.toUpperCase() === 'IN_PROGRESS' && (
-                              <div className="flex items-center text-yellow-600 mt-1">
-                                <ClockIcon className="h-3 w-3 mr-1" />
-                                <span>Đang diễn ra</span>
-                              </div>
-                            )}
+                      {isStart && schedule && (
+                        schedule._isOverlapped && schedule._overlappedSchedules ? (
+                          renderOverlappedSchedules(schedule._overlappedSchedules)
+                        ) : (
+                          <div 
+                            className={`h-full p-2 text-xs border rounded m-1 ${getScheduleColor(schedule)} ${onViewDetails ? 'cursor-pointer hover:opacity-80' : ''}`}
+                            onClick={() => onViewDetails && onViewDetails(schedule)}
+                          >
+                            <div className="font-medium truncate">{schedule.subject_name}</div>
+                            <div className="text-xs text-gray-600 truncate">{schedule.subject_code}</div>
+                            <div className="mt-1 flex flex-col space-y-1">
+                              <div className="truncate">GV: {schedule.lecturer}</div>
+                              <div className="truncate">Phòng: {schedule.room}</div>
+                              <div className="truncate">Lớp: {schedule.class}</div>
+                              <div className="truncate">Nhóm {schedule.course_group} - Buổi {schedule.course_section}</div>
+                              {schedule.status === 'IN_PROGRESS' && (
+                                <div className="flex items-center text-yellow-600 mt-1">
+                                  <ClockIcon className="h-3 w-3 mr-1" />
+                                  <span>Đang diễn ra</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ) : null}
+                        )
+                      )}
                     </td>
                   );
                 })}
