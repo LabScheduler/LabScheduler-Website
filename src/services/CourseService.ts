@@ -4,7 +4,7 @@ import { CourseResponse, CourseSectionResponse, NewCourseResponse } from "@/type
 
 
 class CourseService{
-    async getAllCoursesBySemesterId(semesterId: string): Promise<DataResponse<CourseResponse[]>> {
+    async getAllCoursesBySemesterId(semesterId: number): Promise<DataResponse<CourseResponse[]>> {
         const response = await axiosConfig.get(`/course?semesterId=${semesterId}`);
         if(!response.data.success)
             throw new Error("Lỗi kết nối đến máy chủ :(");
@@ -55,6 +55,24 @@ class CourseService{
         const response = await axiosConfig.get(`/course/${courseId}/sections`);
         if(!response.data.success)
             throw new Error("Lỗi kết nối đến máy chủ :(");
+        return response.data;
+    }
+
+    async getCourseByLecturerId(lecturerId: number): Promise<DataResponse<CourseResponse[]>> {
+        const response = await axiosConfig.get(`/course/lecturer`);
+        if(!response.data.success)
+            throw new Error("Lỗi kết nối đến máy chủ :(");
+        return response.data;
+    }
+
+    async getLecturerCourses(): Promise<DataResponse<CourseResponse[]>> {
+        const response = await axiosConfig.get<DataResponse<CourseResponse[]>>(
+            "/course/lecturer"
+        );
+
+        if (!response.data.success) {
+            throw new Error(response.data.message);
+        }
         return response.data;
     }
 }

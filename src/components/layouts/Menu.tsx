@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation";
 import { useContext, useState, useEffect, use } from "react";
 
 import {
+  PaperAirplaneIcon,
+  AcademicCapIcon,
   HomeIcon,
   UserGroupIcon,
   UsersIcon,
@@ -52,7 +54,7 @@ const menuItems = [
         label: "Rooms",
         name: "Phòng máy",
         href: "/rooms",
-        visible: ["MANAGER", "LECTURER", "STUDENT"],
+        visible: ["MANAGER"],
       },
       {
         icon: <CalendarIcon className="w-5 h-5" />,
@@ -73,7 +75,7 @@ const menuItems = [
         label: "Requests",
         name: "Yêu cầu giảng viên",
         href: "/requests",
-        visible: ["MANAGER", "LECTURER"],
+        visible: ["MANAGER"],
       },
       {
         icon: <DocumentTextIcon className="w-5 h-5" />,
@@ -95,6 +97,20 @@ const menuItems = [
         name: "Học phần",
         href: "/courses",
         visible: ["MANAGER"],
+      },
+      {
+        icon: <AcademicCapIcon className="w-5 h-5" />,
+        label: "Teaching Schedule",
+        name: "Lịch dạy",
+        href: "/lecturer/schedules",
+        visible: ["LECTURER"],
+      },
+      {
+        icon: <PaperAirplaneIcon className="w-5 h-5" />,
+        label: "Request Schedule",
+        name: "Yêu cầu",
+        href: "/lecturer/requests",
+        visible: ["LECTURER"],
       },
     ],
   },

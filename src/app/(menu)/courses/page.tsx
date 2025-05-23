@@ -164,7 +164,7 @@ export default function CoursesPage() {
       
       try {
         setLoading(true);
-        const response = await CourseService.getAllCoursesBySemesterId(selectedSemester.id.toString());
+        const response = await CourseService.getAllCoursesBySemesterId(selectedSemester.id);
         if (response.success) {
           setCourses(response.data.map(mapCourseResponseToCourse));
         } else {

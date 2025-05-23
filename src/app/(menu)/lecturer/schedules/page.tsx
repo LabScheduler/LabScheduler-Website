@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScheduleTable, ScheduleItem } from '@/components/schedules/schedule.table';
 import { ScheduleGrid } from '@/components/schedules/schedule.grid';
 import { 
@@ -8,109 +8,15 @@ import {
   Squares2X2Icon, 
   ChevronLeftIcon, 
   ChevronRightIcon,
-  FunnelIcon,
-  XMarkIcon,
-  Cog6ToothIcon
+  PaperAirplaneIcon
 } from '@heroicons/react/24/outline';
-import { FilterPanel } from '@/components/ui/filter-panel';
-import Link from 'next/link';
 import AuthService from '@/services/AuthService';
 import ScheduleService from '@/services/ScheduleService';
 import SemesterService from '@/services/SemesterService';
 import { ScheduleResponse, SemesterResponse, SemesterWeekResponse } from '@/types/TypeResponse';
-import ClassService from '@/services/ClassService';
-import UserService from '@/services/UserService';
-import CourseService from '@/services/CourseService';
-
-// Sample schedule data matching the backend ScheduleResponse format
-const sampleSchedules: ScheduleItem[] = [
-  {
-    id: 1,
-    subject_code: "INT1154",
-    subject_name: "Lập trình Web",
-    course_group: 1,
-    course_section: 1,
-    room: "2B11",
-    semester_week: "Tuần 36",
-    day_of_week: 1, // Monday
-    start_period: 1,
-    total_period: 3,
-    class: "D22CQCN01-N",
-    lecturer: "Giang Vien 1",
-    status: "COMPLETED"
-  },
-  {
-    id: 2,
-    subject_code: "INT1180",
-    subject_name: "An toàn và bảo mật hệ thống thông tin",
-    course_group: 1,
-    course_section: 2,
-    room: "2B12",
-    semester_week: "Tuần 36",
-    day_of_week: 2, // Tuesday
-    start_period: 6,
-    total_period: 3,
-    class: "D22CQCN01-N",
-    lecturer: "Giang Vien 2",
-    status: "COMPLETED"
-  },
-  {
-    id: 3,
-    subject_code: "INT1155",
-    subject_name: "Nhập môn công nghệ phần mềm",
-    course_group: 2,
-    course_section: 1,
-    room: "2B21",
-    semester_week: "Tuần 36",
-    day_of_week: 3, // Wednesday
-    start_period: 2,
-    total_period: 4,
-    class: "D22CQCN01-N",
-    lecturer: "Giang Vien 3",
-    status: "IN_PROGRESS"
-  },
-  {
-    id: 4,
-    subject_code: "INT1340",
-    subject_name: "Nhập môn trí tuệ nhân tạo",
-    course_group: 1,
-    course_section: 1,
-    room: "2B22",
-    semester_week: "Tuần 37",
-    day_of_week: 4, // Thursday
-    start_period: 1,
-    total_period: 3,
-    class: "D22CQCN02-N",
-    lecturer: "Giang Vien 4",
-    status: "IN_PROGRESS"
-  },
-  {
-    id: 5,
-    subject_code: "INT1358",
-    subject_name: "Cơ sở dữ liệu phân tán",
-    course_group: 2,
-    course_section: 1,
-    room: "2B31",
-    semester_week: "Tuần 37",
-    day_of_week: 5, // Friday
-    start_period: 6,
-    total_period: 2,
-    class: "D22CQCN02-N",
-    lecturer: "Giang Vien 5",
-    status: "CANCELLED"
-  }
-];
+import { CreateRequest } from '@/components/requests/create-request';
 
 type ViewMode = 'table' | 'grid';
-type ScheduleViewType = 'class' | 'lecturer' | 'course';
-
-interface Filters {
-  subject: string;
-  lecturer: string;
-  class: string;
-  room: string;
-  status: string;
-}
 
 // Helper function to map ScheduleResponse to ScheduleItem
 const mapScheduleResponseToScheduleItem = (schedule: ScheduleResponse): ScheduleItem => ({
@@ -129,25 +35,12 @@ const mapScheduleResponseToScheduleItem = (schedule: ScheduleResponse): Schedule
   status: schedule.status || 'PENDING'
 });
 
-export default function SchedulesPage() {
+export default function LecturerSchedulesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [selectedWeek, setSelectedWeek] = useState<string>("");
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [filters, setFilters] = useState<Filters>({
-    subject: '',
-    lecturer: '',
-    class: '',
-    room: '',
-    status: ''
-  });
-
-  // New state variables for view selector
-  const [scheduleViewType, setScheduleViewType] = useState<ScheduleViewType>('class');
-  const [selectedViewId, setSelectedViewId] = useState<number | null>(null);
-  const [viewOptions, setViewOptions] = useState<{ id: number; name: string; }[]>([]);
-  const [loadingViewOptions, setLoadingViewOptions] = useState(false);
+  const [isCreateRequestModalOpen, setIsCreateRequestModalOpen] = useState(false);
 
   // State for data
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
@@ -157,7 +50,7 @@ export default function SchedulesPage() {
   const [semesterWeeks, setSemesterWeeks] = useState<SemesterWeekResponse[]>([]);
   const [semesters, setSemesters] = useState<SemesterResponse[]>([]);
 
-  // Load current semester and its weeks
+  // Load semesters and current semester data
   useEffect(() => {
     const fetchSemesterData = async () => {
       try {
@@ -192,168 +85,45 @@ export default function SchedulesPage() {
     fetchSemesterData();
   }, []);
 
-  // Load view options based on selected view type
-  useEffect(() => {
-    const fetchViewOptions = async () => {
-      if (!currentSemester) return;
-      
-      setLoadingViewOptions(true);
-      try {
-        let options: { id: number; name: string; }[] = [];
-        
-        switch (scheduleViewType) {
-          case 'class':
-            const classResponse = await ClassService.getAllClasses("");
-            options = classResponse.data.map(c => ({ id: c.id, name: c.name }));
-            break;
-          case 'lecturer':
-            const lecturerResponse = await UserService.getAllLecturers();
-            options = lecturerResponse.data.map(l => ({ id: l.id, name: l.fullName }));
-            break;
-          case 'course':
-            const courseResponse = await CourseService.getAllCoursesBySemesterId(currentSemester.id);
-            options = courseResponse.data.map(c => ({ id: c.id, name: c.subject }));
-            break;
-        }
-        
-        setViewOptions(options);
-        setSelectedViewId(options.length > 0 ? options[0].id : null);
-      } catch (err) {
-        setError('Lỗi khi tải dữ liệu: ' + (err instanceof Error ? err.message : String(err)));
-      } finally {
-        setLoadingViewOptions(false);
-      }
-    };
-
-    fetchViewOptions();
-  }, [scheduleViewType, currentSemester]);
-
-  // Load schedules based on view type and selected ID
+  // Load lecturer's schedules
   useEffect(() => {
     const fetchSchedules = async () => {
-      if (!currentSemester || !selectedViewId) return;
+      if (!currentSemester) return;
       
       try {
         setLoading(true);
         setError(null);
         
-        let response;
-        switch (scheduleViewType) {
-          case 'class':
-            response = await ScheduleService.getscheduleByClassId(currentSemester.id, selectedViewId);
-            break;
-          case 'lecturer':
-            response = await ScheduleService.getscheduleByLecturerId(currentSemester.id, selectedViewId);
-            break;
-          case 'course':
-            response = await ScheduleService.getscheduleByCourseId(currentSemester.id, selectedViewId);
-            break;
+        const lecturerId = AuthService.getUserId(localStorage.getItem('token') || '');
+        if (!lecturerId) {
+          setError('Không thể xác định giảng viên');
+          return;
         }
+
+        const response = await ScheduleService.getscheduleByLecturerId(currentSemester.id, lecturerId);
         
         if (response && response.success) {
           const mappedSchedules = response.data.map(mapScheduleResponseToScheduleItem);
           setSchedules(mappedSchedules);
         } else {
-          setError('Không thể tải danh sách lịch học');
+          setError('Không thể tải danh sách lịch dạy');
         }
       } catch (err) {
-        setError('Lỗi khi tải lịch học: ' + (err instanceof Error ? err.message : String(err)));
+        setError('Lỗi khi tải lịch dạy: ' + (err instanceof Error ? err.message : String(err)));
       } finally {
         setLoading(false);
       }
     };
     
     fetchSchedules();
-  }, [currentSemester, scheduleViewType, selectedViewId]);
-  
-  // Extract unique values for filter dropdowns
-  const uniqueSubjects = useMemo(() => 
-    Array.from(new Set(schedules.map(s => s.subject_name))).sort(), [schedules]);
-  
-  const uniqueLecturers = useMemo(() => 
-    Array.from(new Set(schedules.map(s => s.lecturer))).sort(), [schedules]);
-  
-  const uniqueClasses = useMemo(() => 
-    Array.from(new Set(schedules.map(s => s.class))).sort(), [schedules]);
-    
-  const uniqueRooms = useMemo(() => 
-    Array.from(new Set(schedules.map(s => s.room))).sort(), [schedules]);
+  }, [currentSemester]);
 
-  const statuses = useMemo(() => 
-    ["COMPLETED", "IN_PROGRESS", "CANCELLED", "PENDING"], []);
-
-  const filterOptions = useMemo(() => [
-    {
-      id: 'subject',
-      label: 'Môn học',
-      type: 'select' as const,
-      value: filters.subject,
-      options: uniqueSubjects.map(subject => ({ value: subject, label: subject }))
-    },
-    {
-      id: 'lecturer',
-      label: 'Giảng viên',
-      type: 'select' as const,
-      value: filters.lecturer,
-      options: uniqueLecturers.map(lecturer => ({ value: lecturer, label: lecturer }))
-    },
-    {
-      id: 'class',
-      label: 'Lớp',
-      type: 'select' as const,
-      value: filters.class,
-      options: uniqueClasses.map(cls => ({ value: cls, label: cls }))
-    },
-    {
-      id: 'room',
-      label: 'Phòng',
-      type: 'select' as const,
-      value: filters.room,
-      options: uniqueRooms.map(room => ({ value: room, label: room }))
-    },
-    {
-      id: 'status',
-      label: 'Trạng thái',
-      type: 'select' as const,
-      value: filters.status,
-      options: statuses.map(status => ({ 
-        value: status, 
-        label: status === 'COMPLETED' ? 'Hoàn thành' : 
-               status === 'IN_PROGRESS' ? 'Đang diễn ra' : 
-               status === 'CANCELLED' ? 'Đã hủy' :
-               status === 'PENDING' ? 'Chờ xử lý' : status
-      }))
-    }
-  ], [filters, uniqueSubjects, uniqueLecturers, uniqueClasses, uniqueRooms, statuses]);
-
-  // Filter schedules based on selected filters and week
-  const filteredSchedules = useMemo(() => {
-    let results = selectedWeek === 'all' 
+  // Filter schedules based on selected week
+  const filteredSchedules = React.useMemo(() => {
+    return selectedWeek === 'all' 
       ? schedules 
       : schedules.filter(schedule => schedule.semester_week === selectedWeek);
-    
-    if (filters.subject) {
-      results = results.filter(schedule => schedule.subject_name === filters.subject);
-    }
-    
-    if (filters.lecturer) {
-      results = results.filter(schedule => schedule.lecturer === filters.lecturer);
-    }
-    
-    if (filters.class) {
-      results = results.filter(schedule => schedule.class === filters.class);
-    }
-    
-    if (filters.room) {
-      results = results.filter(schedule => schedule.room === filters.room);
-    }
-    
-    if (filters.status) {
-      results = results.filter(schedule => schedule.status === filters.status);
-    }
-    
-    return results;
-  }, [schedules, selectedWeek, filters]);
+  }, [schedules, selectedWeek]);
 
   const handleViewScheduleDetails = (schedule: ScheduleItem) => {
     setSelectedSchedule(schedule);
@@ -362,7 +132,6 @@ export default function SchedulesPage() {
 
   const navigateWeek = (direction: 'prev' | 'next') => {
     if (selectedWeek === 'all') {
-      // If 'all' is selected, select the first week when navigating
       if (semesterWeeks.length > 0) {
         setSelectedWeek(semesterWeeks[0].name);
       }
@@ -377,23 +146,6 @@ export default function SchedulesPage() {
     } else if (direction === 'next' && currentIndex < semesterWeeks.length - 1) {
       setSelectedWeek(semesterWeeks[currentIndex + 1].name);
     }
-  };
-
-  const handleFilterChange = (filterId: string, value: string) => {
-    setFilters(prev => ({
-      ...prev,
-      [filterId]: value
-    }));
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      subject: '',
-      lecturer: '',
-      class: '',
-      room: '',
-      status: ''
-    });
   };
 
   // Show loading state
@@ -430,40 +182,8 @@ export default function SchedulesPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Lịch thực hành</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Lịch dạy của tôi</h1>
         <div className="flex items-center gap-4">
-          {/* View type and data selector */}
-          <div className="flex items-center gap-2">
-            <select
-              value={scheduleViewType}
-              onChange={(e) => setScheduleViewType(e.target.value as ScheduleViewType)}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="class">Lịch học theo lớp</option>
-              <option value="lecturer">Lịch học theo giảng viên</option>
-              <option value="course">Lịch học theo học phần</option>
-            </select>
-
-            <select
-              value={selectedViewId || ''}
-              onChange={(e) => setSelectedViewId(Number(e.target.value))}
-              disabled={loadingViewOptions}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 min-w-[200px]"
-            >
-              {loadingViewOptions ? (
-                <option>Đang tải...</option>
-              ) : viewOptions.length > 0 ? (
-                viewOptions.map(option => (
-                  <option key={option.id} value={option.id}>
-                    {option.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">Không có dữ liệu</option>
-              )}
-            </select>
-          </div>
-          
           {/* Semester and Week navigation */}
           <div className="flex items-center gap-2">
             {/* Semester selector */}
@@ -499,60 +219,40 @@ export default function SchedulesPage() {
               ))}
             </select>
 
-          {/* Week navigation */}
-          <div className="flex items-center">
-            <button
-              onClick={() => navigateWeek('prev')}
+            {/* Week navigation */}
+            <div className="flex items-center">
+              <button
+                onClick={() => navigateWeek('prev')}
                 disabled={selectedWeek === 'all' || semesterWeeks.findIndex(w => w.name === selectedWeek) === 0}
-              className="p-1 rounded-md text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Tuần trước"
-            >
-              <ChevronLeftIcon className="w-5 h-5" />
-            </button>
-            
-            <select
-              value={selectedWeek}
-              onChange={(e) => setSelectedWeek(e.target.value)}
-              className="mx-2 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
+                className="p-1 rounded-md text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Tuần trước"
+              >
+                <ChevronLeftIcon className="w-5 h-5" />
+              </button>
+              
+              <select
+                value={selectedWeek}
+                onChange={(e) => setSelectedWeek(e.target.value)}
+                className="mx-2 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
                 {semesterWeeks.map(week => (
                   <option key={week.id} value={week.name}>
                     {week.name} ({new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')})
                   </option>
-              ))}
-              <option value="all">Tất cả</option>
-            </select>
-            
-            <button
-              onClick={() => navigateWeek('next')}
+                ))}
+                <option value="all">Tất cả</option>
+              </select>
+              
+              <button
+                onClick={() => navigateWeek('next')}
                 disabled={selectedWeek === 'all' || semesterWeeks.findIndex(w => w.name === selectedWeek) === semesterWeeks.length - 1}
-              className="p-1 rounded-md text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Tuần sau"
-            >
-              <ChevronRightIcon className="w-5 h-5" />
-            </button>
+                className="p-1 rounded-md text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Tuần sau"
+              >
+                <ChevronRightIcon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-          </div>
-          
-          {/* Management link - only for managers */}
-          {AuthService.getRole() === "MANAGER" && (
-            <Link 
-              href="/schedules/manage"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
-            >
-              <Cog6ToothIcon className="w-5 h-5" />
-              Quản lý lịch học
-            </Link>
-          )}
-          
-          {/* Filter panel component */}
-          <FilterPanel
-            isOpen={isFilterOpen}
-            onToggle={() => setIsFilterOpen(!isFilterOpen)}
-            filterOptions={filterOptions}
-            onFilterChange={handleFilterChange}
-            onReset={resetFilters}
-          />
           
           {/* View mode toggle */}
           <div className="flex bg-gray-100 rounded-md p-1">
@@ -596,7 +296,7 @@ export default function SchedulesPage() {
         <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full">
           <div className="relative top-20 mx-auto p-5 border w-1/2 shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Chi tiết lịch thực hành</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Chi tiết lịch dạy</h3>
               <button
                 onClick={() => {
                   setIsDetailModalOpen(false);
@@ -615,10 +315,6 @@ export default function SchedulesPage() {
                   <h4 className="text-sm font-medium text-gray-500">Môn học</h4>
                   <p className="text-sm font-medium">{selectedSchedule.subject_name}</p>
                   <p className="text-xs text-gray-500">{selectedSchedule.subject_code}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-500">Giảng viên</h4>
-                  <p className="text-sm font-medium">{selectedSchedule.lecturer}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Lớp / Nhóm</h4>

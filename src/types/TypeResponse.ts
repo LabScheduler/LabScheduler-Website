@@ -163,3 +163,20 @@ export interface CourseSectionResponse{
   sectionNumber: number;
   totalStudentsInSection: number;
 }
+
+export interface LecturerRequestResponse {
+  id: number;
+  lecturer: string;
+  subject: string;
+  groupNumber: number;
+  sectionNumber: number;
+  newRoom: string;
+  newSemesterWeek: string;
+  newDayOfWeek: number;
+  newStartPeriod: number;
+  newTotalPeriod: number;
+  lecturerBody: string;
+  managerBody: string;
+  status: string;
+  createdAt: Date;
+}

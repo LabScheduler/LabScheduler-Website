@@ -35,9 +35,9 @@ class scheduleService {
         return response.data;
     }
 
-    async getscheduleByCourseId(courseId: number): Promise<DataResponse<ScheduleResponse[]>> {
+    async getscheduleByCourseId(semesterId: number, courseId: number): Promise<DataResponse<ScheduleResponse[]>> {
         const response = await axiosConfig.get<DataResponse<ScheduleResponse[]>>(
-            `/schedule/course/${courseId}`
+            `/schedule/course?semesterId=${semesterId}&courseId=${courseId}`
         );
 
         if (!response.data.success) {

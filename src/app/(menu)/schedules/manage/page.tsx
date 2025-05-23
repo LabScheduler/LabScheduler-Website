@@ -204,7 +204,7 @@ export default function ScheduleManagementPage() {
               .map(mapScheduleResponseToSchedule)
               .filter(schedule => 
                 !selectedSemesterWeek || schedule.semesterWeek === selectedSemesterWeek.name
-              );
+            );
             
             setSchedules(mappedSchedules);
           } else {
@@ -278,7 +278,7 @@ export default function ScheduleManagementPage() {
       if (!selectedSemester) return;
       
       try {
-        const response = await CourseService.getAllCoursesBySemesterId(selectedSemester.id.toString());
+        const response = await CourseService.getAllCoursesBySemesterId(selectedSemester.id);
         if (response.success) {
           setCourses(response.data);
         } else {
