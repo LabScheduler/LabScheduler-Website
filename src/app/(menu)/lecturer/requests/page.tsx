@@ -5,7 +5,7 @@ import { PencilIcon, XMarkIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { Pagination } from '@/components/ui/pagination';
 import { usePagination } from '@/hooks/use-pagination';
 import LecturerRequestService from '@/services/LecturerRequestService';
-import { LecturerRequestResponse } from '@/types/TypeResponse';
+import { LecturerRequestResponse, ScheduleResponse } from '@/types/TypeResponse';
 import AuthService from '@/services/AuthService';
 import { toast } from 'react-hot-toast';
 import { CreateRequest } from '@/components/requests/create-request';
@@ -22,7 +22,8 @@ export default function LecturerRequestsPage() {
   // Success notification states
   const [successRequest, setSuccessRequest] = useState<LecturerRequestResponse | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<'create' | 'cancel' | null>(null);
+  const [actionType, setActionType] = useState<'create' | 'cancel' | 'conflict' | null>(null);
+  const [conflictSchedule, setConflictSchedule] = useState<ScheduleResponse | null>(null);
 
   // Use our pagination hook
   const {
@@ -177,27 +178,47 @@ export default function LecturerRequestsPage() {
   return (
     <div className="p-6">
       {/* Success notification dialog */}
-      {successRequest && (
-        <NotificationDialog
-          isOpen={isSuccessDialogOpen}
-          onClose={() => {
-            setIsSuccessDialogOpen(false);
-            setSuccessRequest(null);
-            setActionType(null);
-          }}
-          title={
-            actionType === 'create' ? "Tạo yêu cầu thành công!" :
-            "Hủy yêu cầu thành công!"
-          }
-          details={{
-            "Môn học": successRequest.subject,
-            "Nhóm": `Nhóm ${successRequest.groupNumber} - Buổi ${successRequest.sectionNumber}`,
-            "Phòng mới": successRequest.newRoom,
-            "Tuần học": successRequest.newSemesterWeek,
-            "Thời gian": `${getWeekdayName(successRequest.newDayOfWeek)}, Tiết ${successRequest.newStartPeriod}-${successRequest.newStartPeriod + successRequest.newTotalPeriod - 1}`,
-            "Trạng thái": getStatusLabel(successRequest.status)
-          }}
-        />
+      {(successRequest || conflictSchedule) && (
+        <div className="fixed inset-0 z-[100]">
+          <NotificationDialog
+            isOpen={isSuccessDialogOpen}
+            onClose={() => {
+              setIsSuccessDialogOpen(false);
+              setSuccessRequest(null);
+              setConflictSchedule(null);
+              if (actionType === 'conflict') {
+                setIsCreateModalOpen(true);
+              }
+              setActionType(null);
+            }}
+            title={
+              actionType === 'create' ? "Tạo yêu cầu thành công!" :
+              actionType === 'cancel' ? "Hủy yêu cầu thành công!" :
+              actionType === 'conflict' ? "Phát hiện lịch học bị trùng!" :
+              "Xóa yêu cầu thành công!"
+            }
+            type={actionType === 'conflict' ? 'warning' : 'success'}
+            details={
+              actionType === 'conflict' && conflictSchedule ? {
+                "Cảnh báo": "Không thể tạo yêu cầu mới vì trùng với lịch học sau:",
+                "Môn học": conflictSchedule.subjectName || '',
+                "Lớp": conflictSchedule.class || '',
+                "Nhóm": `Nhóm ${conflictSchedule.courseGroup || ''} - Buổi ${conflictSchedule.courseSection || ''}`,
+                "Phòng": conflictSchedule.room || '',
+                "Giảng viên": conflictSchedule.lecturer || '',
+                "Thời gian": `${getWeekdayName(conflictSchedule.dayOfWeek)}, Tiết ${conflictSchedule.startPeriod}-${conflictSchedule.startPeriod + conflictSchedule.totalPeriod - 1}`,
+                "Tuần học": conflictSchedule.semesterWeek || ''
+              } : successRequest ? {
+                "Môn học": successRequest.subject,
+                "Nhóm": `Nhóm ${successRequest.groupNumber} - Buổi ${successRequest.sectionNumber}`,
+                "Phòng mới": successRequest.newRoom,
+                "Tuần học": successRequest.newSemesterWeek,
+                "Thời gian": `${getWeekdayName(successRequest.newDayOfWeek)}, Tiết ${successRequest.newStartPeriod}-${successRequest.newStartPeriod + successRequest.newTotalPeriod - 1}`,
+                "Trạng thái": getStatusLabel(successRequest.status)
+              } : {}
+            }
+          />
+        </div>
       )}
 
       <div className="flex justify-between items-center mb-6">
@@ -350,7 +371,7 @@ export default function LecturerRequestsPage() {
       </div>
 
       {/* Create Request Modal */}
-      {isCreateModalOpen && (
+      {isCreateModalOpen && !isSuccessDialogOpen && (
         <CreateRequest
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
@@ -374,6 +395,12 @@ export default function LecturerRequestsPage() {
                   });
               }
             }
+            setIsCreateModalOpen(false);
+          }}
+          onConflict={(schedule) => {
+            setConflictSchedule(schedule);
+            setActionType('conflict');
+            setIsSuccessDialogOpen(true);
             setIsCreateModalOpen(false);
           }}
         />

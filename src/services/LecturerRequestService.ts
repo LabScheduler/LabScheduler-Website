@@ -47,7 +47,6 @@ class LecturerRequestService {
         newTotalPeriod: number;
         body: string;
     }): Promise<DataResponse<LecturerRequestResponse> | ScheduleResponse>  {
-        try{
             const response = await axiosConfig.post<DataResponse<LecturerRequestResponse>>(
                 "/request",
                 payload
@@ -57,10 +56,6 @@ class LecturerRequestService {
                 throw new Error(response.data.message);
             }
             return response.data;
-        }
-        catch (error) {
-            return error.response.data;
-        }
     }
 
     async processRequest(payload: {
@@ -82,6 +77,29 @@ class LecturerRequestService {
     async cancelRequest(requestId: number): Promise<DataResponse<LecturerRequestResponse>> {
         const response = await axiosConfig.delete<DataResponse<LecturerRequestResponse>>(
             `/request/cancel/${requestId}`
+        );
+
+        if (!response.data.success){
+            throw new Error(response.data.message);
+        }
+        return response.data;
+    }
+
+    //Dataresponse is null if no conflict
+    //Dataresponse is a ScheduleResponse if conflict
+    async checkRequestConflictWithExistingSchedule(payload: {
+        courseId: number;
+        courseSectionId: number;
+        newRoomId: number;
+        newSemesterWeekId: number;
+        newDayOfWeek: number;
+        newStartPeriod: number;
+        newTotalPeriod: number;
+        body: string;
+    }): Promise<DataResponse<ScheduleResponse>> {
+        const response = await axiosConfig.post<DataResponse<ScheduleResponse>>(
+            "/request/checkRequestConflict",
+            payload
         );
 
         if (!response.data.success){

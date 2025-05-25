@@ -1,6 +1,6 @@
 import axiosConfig from "@/config/axios";
 import { DataResponse } from "@/types/DataResponse";
-import { CourseResponse, CourseSectionResponse, NewCourseResponse } from "@/types/TypeResponse";
+import { CourseResponse, CourseSectionResponse, LecturerResponse, NewCourseResponse } from "@/types/TypeResponse";
 
 
 class CourseService{
@@ -68,6 +68,17 @@ class CourseService{
     async getLecturerCourses(): Promise<DataResponse<CourseResponse[]>> {
         const response = await axiosConfig.get<DataResponse<CourseResponse[]>>(
             "/course/lecturer"
+        );
+
+        if (!response.data.success) {
+            throw new Error(response.data.message);
+        }
+        return response.data;
+    }
+
+    async getCourseLecturers(courseId: number): Promise<DataResponse<LecturerResponse[]>> {
+        const response = await axiosConfig.get<DataResponse<LecturerResponse[]>>(
+            `/course/${courseId}/lecturers`
         );
 
         if (!response.data.success) {

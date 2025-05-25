@@ -7,18 +7,20 @@ import LecturerRequestService from '@/services/LecturerRequestService';
 import RoomService from '@/services/RoomService';
 import SemesterService from '@/services/SemesterService';
 import CourseService from '@/services/CourseService';
-import { RoomResponse, SemesterWeekResponse, CourseResponse, CourseSectionResponse, LecturerRequestResponse } from '@/types/TypeResponse';
+import { RoomResponse, SemesterWeekResponse, CourseResponse, CourseSectionResponse, LecturerRequestResponse, ScheduleResponse } from '@/types/TypeResponse';
 
 interface CreateRequestProps {
   isOpen: boolean;
   onClose: () => void;
   onRequestCreated: (request: LecturerRequestResponse) => void;
+  onConflict?: (schedule: ScheduleResponse) => void;
 }
 
 export const CreateRequest: React.FC<CreateRequestProps> = ({
   isOpen,
   onClose,
   onRequestCreated,
+  onConflict
 }) => {
   // Form state
   const [selectedCourse, setSelectedCourse] = useState<CourseResponse | null>(null);
@@ -126,7 +128,7 @@ export const CreateRequest: React.FC<CreateRequestProps> = ({
         return;
       }
 
-      const response = await LecturerRequestService.createRequest({
+      const payload = {
         courseId: selectedCourse.id,
         courseSectionId: selectedSection,
         newRoomId: selectedRoom.id,
@@ -135,14 +137,34 @@ export const CreateRequest: React.FC<CreateRequestProps> = ({
         newStartPeriod,
         newTotalPeriod,
         body: reason
-      });
+      };
 
-      if (response.success) {
-        toast.success('Đã gửi yêu cầu thành công');
-        onRequestCreated(response.data);
-        onClose();
+      // Check for conflicts first
+      const conflictResponse = await LecturerRequestService.checkRequestConflictWithExistingSchedule(payload);
+      
+      if (conflictResponse.success) {
+        if (conflictResponse.data) {
+          // There is a conflict
+          if (onConflict) {
+            onConflict(conflictResponse.data);
+          } else {
+            toast.error('Lịch học bị trùng với lịch hiện tại');
+          }
+          return;
+        }
+        
+        // No conflict - proceed with creating request
+        const response = await LecturerRequestService.createRequest(payload);
+
+        if (response.success) {
+          toast.success('Đã gửi yêu cầu thành công');
+          onRequestCreated(response.data as LecturerRequestResponse);
+          onClose();
+        } else {
+          toast.error('Không thể gửi yêu cầu');
+        }
       } else {
-        toast.error('Không thể gửi yêu cầu');
+        toast.error('Lỗi khi kiểm tra lịch trùng');
       }
     } catch (err) {
       toast.error('Lỗi khi gửi yêu cầu: ' + (err instanceof Error ? err.message : String(err)));
@@ -255,7 +277,6 @@ export const CreateRequest: React.FC<CreateRequestProps> = ({
                   <option value={5}>Thứ 5</option>
                   <option value={6}>Thứ 6</option>
                   <option value={7}>Thứ 7</option>
-                  <option value={8}>Chủ nhật</option>
                 </select>
               </div>
 

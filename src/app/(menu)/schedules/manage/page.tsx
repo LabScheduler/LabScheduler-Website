@@ -114,7 +114,7 @@ export default function ScheduleManagementPage() {
   // Success notification states
   const [successSchedule, setSuccessSchedule] = useState<Schedule | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | 'cancel' | null>(null);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | 'cancel' | 'conflict' | null>(null);
 
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -125,6 +125,9 @@ export default function ScheduleManagementPage() {
     room: '',
     status: ''
   });
+
+  // Add new state for course lecturers
+  const [courseLecturers, setCourseLecturers] = useState<LecturerResponse[]>([]);
 
   // Load semesters on component mount
   useEffect(() => {
@@ -291,27 +294,55 @@ export default function ScheduleManagementPage() {
     fetchCourses();
   }, [selectedSemester]);
 
-  // Load course sections when selected course changes
+  // Load course sections and lecturers when selected course changes
   useEffect(() => {
-    const fetchCourseSections = async () => {
-      if (!selectedCourse) return;
+    const fetchCourseDetails = async () => {
+      if (!selectedCourse) {
+        setCourseSections([]);
+        setCourseLecturers([]);
+        setSelectedLecturer(null);
+        return;
+      }
       
       try {
-        const response = await CourseService.getSectionByCourseId(selectedCourse.id);
-        if (response.success) {
-          setCourseSections(response.data);
-          if (response.data.length > 0) {
-            setSelectedCourseSection(response.data[0]);
+        // Fetch course sections
+        const sectionsResponse = await CourseService.getSectionByCourseId(selectedCourse.id);
+        if (sectionsResponse.success) {
+          setCourseSections(sectionsResponse.data);
+          if (sectionsResponse.data.length > 0) {
+            setSelectedCourseSection(sectionsResponse.data[0]);
           }
         } else {
-          setError(response.message || 'Không thể tải danh sách nhóm học phần');
+          setError(sectionsResponse.message || 'Không thể tải danh sách nhóm học phần');
+        }
+
+        // Fetch course lecturers
+        const lecturersResponse = await CourseService.getCourseLecturers(selectedCourse.id);
+        console.log('Course lecturers response:', lecturersResponse); // Debug log
+
+        if (lecturersResponse.success && Array.isArray(lecturersResponse.data)) {
+          setCourseLecturers(lecturersResponse.data);
+          // If there's only one lecturer, select them automatically
+          if (lecturersResponse.data.length === 1) {
+            setSelectedLecturer(lecturersResponse.data[0]);
+          } else {
+            setSelectedLecturer(null);
+          }
+        } else {
+          console.warn('Invalid response from getCourseLecturers, using all lecturers');
+          setCourseLecturers(lecturers);
+          setSelectedLecturer(null);
         }
       } catch (err) {
-        setError('Lỗi khi tải nhóm học phần: ' + (err instanceof Error ? err.message : String(err)));
+        console.error('Error fetching course details:', err);
+        setError('Lỗi khi tải thông tin học phần: ' + (err instanceof Error ? err.message : String(err)));
+        setCourseLecturers(lecturers);
+        setSelectedLecturer(null);
       }
     };
-    fetchCourseSections();
-  }, [selectedCourse]);
+    
+    fetchCourseDetails();
+  }, [selectedCourse, lecturers]);
 
   // Extract unique values for filter dropdowns
   const subjectOptions = useMemo(() => 
@@ -433,8 +464,8 @@ export default function ScheduleManagementPage() {
   };
 
   const getWeekdayName = (day: number) => {
-    const days = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
-    return days[day % 7];
+    const days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
+    return days[(day - 2 + 7) % 7];
   };
 
   const getPeriodRange = (start: number, total: number) => {
@@ -493,19 +524,36 @@ export default function ScheduleManagementPage() {
         startPeriod,
         totalPeriod
       };
+
+      // Check for schedule conflicts first
+      const conflictResponse = await ScheduleService.checkScheduleConflict(payload);
       
-      const response = await ScheduleService.createSchedule(payload);
-      
-      if (response.success) {
-        const newSchedule = mapScheduleResponseToSchedule(response.data);
-        setSchedules(prev => [...prev, newSchedule]);
-        setSuccessSchedule(newSchedule);
-        setActionType('add');
-        setIsSuccessDialogOpen(true);
-        setIsAddModalOpen(false);
-        resetFormData();
+      if (conflictResponse.success) {
+        if (conflictResponse.data) {
+          // There is a conflict - show conflict details
+          const conflictSchedule = mapScheduleResponseToSchedule(conflictResponse.data);
+          setSuccessSchedule(conflictSchedule);
+          setActionType('conflict');
+          setIsSuccessDialogOpen(true);
+          return;
+        }
+        
+        // No conflict - proceed with creating schedule
+        const response = await ScheduleService.createSchedule(payload);
+        
+        if (response.success) {
+          const newSchedule = mapScheduleResponseToSchedule(response.data);
+          setSchedules(prev => [...prev, newSchedule]);
+          setSuccessSchedule(newSchedule);
+          setActionType('add');
+          setIsSuccessDialogOpen(true);
+          setIsAddModalOpen(false);
+          resetFormData();
+        } else {
+          setError(response.message || 'Có lỗi khi tạo lịch học');
+        }
       } else {
-        setError(response.message || 'Có lỗi khi tạo lịch học');
+        setError(conflictResponse.message || 'Có lỗi khi kiểm tra lịch trùng');
       }
     } catch (err) {
       setError('Lỗi khi tạo lịch học: ' + (err instanceof Error ? err.message : String(err)));
@@ -524,6 +572,8 @@ export default function ScheduleManagementPage() {
   ) => {
     try {
       const payload = {
+        courseId: selectedSchedule!.courseId,
+        courseSectionId: selectedSchedule!.courseSectionId,
         roomId,
         lecturerId,
         semesterWeekId,
@@ -643,29 +693,49 @@ export default function ScheduleManagementPage() {
     <div className="p-6">
       {/* Success notification dialog */}
       {successSchedule && (
-        <NotificationDialog
-          isOpen={isSuccessDialogOpen}
-          onClose={() => {
-            setIsSuccessDialogOpen(false);
-            setSuccessSchedule(null);
-            setActionType(null);
-          }}
-          title={
-            actionType === 'add' ? "Thêm lịch học thành công!" :
-            actionType === 'edit' ? "Cập nhật lịch học thành công!" :
-            actionType === 'cancel' ? "Hủy lịch học thành công!" :
-            "Xóa lịch học thành công!"
-          }
-          details={{
-            "Môn học": successSchedule.subject,
-            "Lớp": successSchedule.class,
-            "Nhóm": `Nhóm ${successSchedule.courseGroup} - Buổi ${successSchedule.courseSection}`,
-            "Phòng": successSchedule.room,
-            "Giảng viên": successSchedule.lecturer,
-            "Thời gian": `${getWeekdayName(successSchedule.dayOfWeek)}, ${getPeriodRange(successSchedule.startPeriod, successSchedule.totalPeriod)}`,
-            "Tuần học": successSchedule.semesterWeek
-          }}
-        />
+        <div className="fixed inset-0 z-[100]">
+          <NotificationDialog
+            isOpen={isSuccessDialogOpen}
+            onClose={() => {
+              setIsSuccessDialogOpen(false);
+              setSuccessSchedule(null);
+              if (actionType === 'conflict') {
+                // Do nothing, modal will show again due to isAddModalOpen being true
+              } else {
+                setActionType(null);
+                setIsAddModalOpen(false);
+              }
+            }}
+            title={
+              actionType === 'add' ? "Thêm lịch học thành công!" :
+              actionType === 'edit' ? "Cập nhật lịch học thành công!" :
+              actionType === 'cancel' ? "Hủy lịch học thành công!" :
+              actionType === 'conflict' ? "Phát hiện lịch học bị trùng!" :
+              "Xóa lịch học thành công!"
+            }
+            type={actionType === 'conflict' ? 'warning' : 'success'}
+            details={
+              actionType === 'conflict' ? {
+                "Cảnh báo": "Không thể tạo lịch học mới vì trùng với lịch học sau:",
+                "Môn học": successSchedule.subject,
+                "Lớp": successSchedule.class,
+                "Nhóm": `Nhóm ${successSchedule.courseGroup} - Buổi ${successSchedule.courseSection}`,
+                "Phòng": successSchedule.room,
+                "Giảng viên": successSchedule.lecturer,
+                "Thời gian": `${getWeekdayName(successSchedule.dayOfWeek)}, ${getPeriodRange(successSchedule.startPeriod, successSchedule.totalPeriod)}`,
+                "Tuần học": successSchedule.semesterWeek
+              } : {
+                "Môn học": successSchedule.subject,
+                "Lớp": successSchedule.class,
+                "Nhóm": `Nhóm ${successSchedule.courseGroup} - Buổi ${successSchedule.courseSection}`,
+                "Phòng": successSchedule.room,
+                "Giảng viên": successSchedule.lecturer,
+                "Thời gian": `${getWeekdayName(successSchedule.dayOfWeek)}, ${getPeriodRange(successSchedule.startPeriod, successSchedule.totalPeriod)}`,
+                "Tuần học": successSchedule.semesterWeek
+              }
+            }
+          />
+        </div>
       )}
 
       <div className="flex justify-between items-center mb-6">
@@ -873,7 +943,7 @@ export default function ScheduleManagementPage() {
       </div>
 
       {/* Add Schedule Modal */}
-      {isAddModalOpen && (
+      {isAddModalOpen && !isSuccessDialogOpen && (
         <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-2/3 shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
@@ -983,13 +1053,14 @@ export default function ScheduleManagementPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
                     value={selectedLecturer?.id || ""}
                     onChange={(e) => {
-                      const lecturer = lecturers.find(l => l.id === parseInt(e.target.value));
+                      const lecturer = courseLecturers.find(l => l.id === parseInt(e.target.value));
                       setSelectedLecturer(lecturer || null);
                     }}
                     required
+                    disabled={!selectedCourse}
                   >
                     <option value="">Chọn giảng viên</option>
-                    {lecturers.map(lecturer => (
+                    {courseLecturers.map(lecturer => (
                       <option key={lecturer.id} value={lecturer.id}>
                         {lecturer.code} - {lecturer.fullName}
                       </option>
@@ -1005,12 +1076,13 @@ export default function ScheduleManagementPage() {
                     onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
                     required
                   >
-                    <option value="1">Thứ 2</option>
-                    <option value="2">Thứ 3</option>
-                    <option value="3">Thứ 4</option>
-                    <option value="4">Thứ 5</option>
-                    <option value="5">Thứ 6</option>
-                    <option value="6">Thứ 7</option>
+                    <option value="2">Thứ 2</option>
+                    <option value="3">Thứ 3</option>
+                    <option value="4">Thứ 4</option>
+                    <option value="5">Thứ 5</option>
+                    <option value="6">Thứ 6</option>
+                    <option value="7">Thứ 7</option>
+                    <option value="8">Chủ nhật</option>
                   </select>
                 </div>
                 
@@ -1048,14 +1120,22 @@ export default function ScheduleManagementPage() {
                 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700">Tuần học</label>
-                  <div className="mt-1 p-3 border border-gray-300 rounded-md">
-                    <p className="text-sm">{selectedSemesterWeek?.name || "Chưa chọn tuần học"}</p>
-                    <p className="text-xs text-gray-500">
-                      {selectedSemesterWeek ? 
-                        `${new Date(selectedSemesterWeek.startDate).toLocaleDateString('vi-VN')} - ${new Date(selectedSemesterWeek.endDate).toLocaleDateString('vi-VN')}` : 
-                        "Vui lòng chọn tuần học ở bảng điều khiển chính"}
-                    </p>
-                  </div>
+                  <select
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    value={selectedSemesterWeek?.id || ""}
+                    onChange={(e) => {
+                      const week = semesterWeeks.find(w => w.id === parseInt(e.target.value));
+                      setSelectedSemesterWeek(week || null);
+                    }}
+                    required
+                  >
+                    <option value="">Chọn tuần học</option>
+                    {semesterWeeks.map(week => (
+                      <option key={week.id} value={week.id}>
+                        {week.name} ({new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')})
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               
@@ -1242,13 +1322,13 @@ export default function ScheduleManagementPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
                     value={selectedLecturer?.id || ""}
                     onChange={(e) => {
-                      const lecturer = lecturers.find(l => l.id === parseInt(e.target.value));
+                      const lecturer = courseLecturers.find(l => l.id === parseInt(e.target.value));
                       setSelectedLecturer(lecturer || null);
                     }}
                     required
                   >
                     <option value="">Chọn giảng viên</option>
-                    {lecturers.map(lecturer => (
+                    {courseLecturers.map(lecturer => (
                       <option key={lecturer.id} value={lecturer.id}>
                         {lecturer.code} - {lecturer.fullName}
                       </option>
@@ -1264,13 +1344,13 @@ export default function ScheduleManagementPage() {
                     onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
                     required
                   >
-                    <option value="1">Thứ 2</option>
-                    <option value="2">Thứ 3</option>
-                    <option value="3">Thứ 4</option>
-                    <option value="4">Thứ 5</option>
-                    <option value="5">Thứ 6</option>
-                    <option value="6">Thứ 7</option>
-
+                    <option value="2">Thứ 2</option>
+                    <option value="3">Thứ 3</option>
+                    <option value="4">Thứ 4</option>
+                    <option value="5">Thứ 5</option>
+                    <option value="6">Thứ 6</option>
+                    <option value="7">Thứ 7</option>
+                    <option value="8">Chủ nhật</option>
                   </select>
                 </div>
                 

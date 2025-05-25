@@ -341,8 +341,8 @@ export default function LecturerSchedulesPage() {
                   <h4 className="text-sm font-medium text-gray-500">Thời gian</h4>
                   <p className="text-sm font-medium">
                     {(() => {
-                      const days = ["Chủ nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
-                      const day = days[selectedSchedule.day_of_week % 7];
+                      const days = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7","Chủ nhật"];
+                      const day = days[(selectedSchedule.day_of_week -2 + 7) % 7];
                       const startPeriod = selectedSchedule.start_period;
                       const endPeriod = startPeriod + selectedSchedule.total_period - 1;
                       return `${day}, Tiết ${startPeriod}-${endPeriod}`;

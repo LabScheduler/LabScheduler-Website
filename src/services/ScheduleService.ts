@@ -73,6 +73,8 @@ class scheduleService {
 
     async updateSchedule(scheduleId: number,
         payload: {
+            courseId: number;
+            courseSectionId: number;
             roomId: number;
             lecturerId: number;
             semesterWeekId: number;
@@ -81,7 +83,7 @@ class scheduleService {
             totalPeriod: number;
         }): Promise<DataResponse<ScheduleResponse>> {
         const response = await axiosConfig.put<DataResponse<ScheduleResponse>>(
-            `/schedule/${scheduleId}`, payload 
+            `/schedule/${scheduleId}`, payload
         );
 
         if (!response.data.success) {
@@ -112,6 +114,28 @@ class scheduleService {
             throw new Error(response.data.message);
         }
 
+        return response.data;
+    }
+
+    //If the schedule conflict -> response a DataResponse with DataResponse.data is a ScheduleResponse that contains the conflict schedule
+    //If the schedule not conflict -> response a DataResponse with DataResponse.data is null
+    async checkScheduleConflict(payload: {
+        courseId: number;
+        courseSectionId: number;
+        roomId: number;
+        lecturerId: number;
+        semesterWeekId: number;
+        dayOfWeek: number;
+        startPeriod: number;
+        totalPeriod: number;
+    }): Promise<DataResponse<ScheduleResponse>> {
+        const response = await axiosConfig.post<DataResponse<ScheduleResponse>>(
+            "/schedule/checkScheduleConflict", payload
+        );
+
+        if (!response.data.success) {
+            throw new Error(response.data.message);
+        }
         return response.data;
     }
 
