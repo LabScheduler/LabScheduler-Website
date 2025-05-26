@@ -37,7 +37,7 @@ const mapScheduleResponseToScheduleItem = (schedule: ScheduleResponse): Schedule
 
 export default function LecturerSchedulesPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('table');
-  const [selectedWeek, setSelectedWeek] = useState<string>("");
+  const [selectedWeek, setSelectedWeek] = useState<string>("all");
   const [selectedSchedule, setSelectedSchedule] = useState<ScheduleItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateRequestModalOpen, setIsCreateRequestModalOpen] = useState(false);
@@ -72,9 +72,7 @@ export default function LecturerSchedulesPage() {
           
           if (weeksResponse.success) {
             setSemesterWeeks(weeksResponse.data);
-            if (weeksResponse.data.length > 0) {
-              setSelectedWeek(weeksResponse.data[0].name);
-            }
+            setSelectedWeek('all'); // Set default to 'all'
           }
         }
       } catch (err) {
@@ -235,12 +233,12 @@ export default function LecturerSchedulesPage() {
                 onChange={(e) => setSelectedWeek(e.target.value)}
                 className="mx-2 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
+                <option value="all">Tất cả</option>
                 {semesterWeeks.map(week => (
                   <option key={week.id} value={week.name}>
                     {week.name} ({new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')})
                   </option>
                 ))}
-                <option value="all">Tất cả</option>
               </select>
               
               <button

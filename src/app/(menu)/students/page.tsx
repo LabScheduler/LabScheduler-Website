@@ -482,6 +482,9 @@ export default function StudentsPage() {
                   Lớp
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ngành
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Chuyên ngành
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -518,6 +521,9 @@ export default function StudentsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {student.major}
+                  </td>
+                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {student.specialization || 'Không có'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -697,6 +703,7 @@ export default function StudentsPage() {
                         {classes.map((classItem) => (
                           <option key={classItem.id} value={classItem.id}>
                             {classItem.name} - {classItem.major}
+                            {classItem.type === "SPECIALIZATION" && classItem.specialization ? ` (${classItem.specialization})` : ''}
                           </option>
                         ))}
                       </>

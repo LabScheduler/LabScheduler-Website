@@ -502,7 +502,7 @@ export default function LecturersPage() {
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {lecturer.status === 'ACTIVE' ? 'Đang giảng dạy' : 'Đã khoá'}
+                      {lecturer.status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã khoá'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -850,7 +850,7 @@ export default function LecturersPage() {
                       defaultValue={selectedLecturer.status}
                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
                     >
-                      <option value="ACTIVE">Đang giảng dạy</option>
+                      <option value="ACTIVE">Đang hoạt động</option>
                       <option value="INACTIVE">Đã khoá</option>
                     </select>
                   </div>

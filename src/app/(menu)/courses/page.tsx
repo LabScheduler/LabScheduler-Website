@@ -1040,125 +1040,203 @@ export default function CoursesPage() {
       {/* Edit Course Modal */}
       {isEditModalOpen && selectedCourse && (
         <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full">
-          <div className="relative top-20 mx-auto p-5 border w-1/2 shadow-lg rounded-md bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Chỉnh sửa thông tin học phần</h3>
+          <div className="relative top-20 mx-auto p-6 border w-2/3 shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Chỉnh sửa thông tin học phần</h3>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={() => {
                   setIsEditModalOpen(false);
                   setSelectedCourse(null);
+                  resetAllSelections();
                 }}
                 className="text-gray-400 hover:text-gray-500"
               >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <form onSubmit={(e) => {
               e.preventDefault();
-              const form = e.target as HTMLFormElement;
-              const formData = new FormData(form);
-              
+              if (!selectedCourse) return;
+
               handleUpdateCourse(
                 selectedCourse.id,
-                parseInt(formData.get('subjectId') as string),
-                parseInt(formData.get('classId') as string),
+                selectedSubject?.id || subjects.find(s => s.name === selectedCourse.subject)?.id || 0,
+                selectedClass?.id || classes.find(c => c.name === selectedCourse.class)?.id || 0,
                 selectedLecturers.map(l => l.id),
-                parseInt(formData.get('totalStudents') as string)
+                defaultStudentCount || selectedCourse.totalStudents
               );
-            }} className="h-[calc(100%-4rem)] overflow-y-auto pr-2">
-              <div className="grid grid-cols-2 gap-3">
+            }}>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Subject Selection */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Học phần</label>
-                      <select
-                    name="subjectId"
-                        required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    defaultValue={subjects.find(s => s.name === selectedCourse.subject)?.id || ""}
-                  >
-                    <option value="">Chọn học phần</option>
-                    {subjects.map(subject => (
-                      <option 
-                        key={subject.id} 
-                        value={subject.id}
-                      >
-                        {subject.code} - {subject.name}
-                      </option>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Môn học</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={subjectSearchText || (selectedSubject ? `${selectedSubject.code} - ${selectedSubject.name}` : selectedCourse.subject)}
+                      onChange={(e) => {
+                        setSubjectSearchText(e.target.value);
+                        setSelectedSubject(null);
+                      }}
+                      onFocus={() => setIsSubjectFocused(true)}
+                      onBlur={() => {
+                        setTimeout(() => setIsSubjectFocused(false), 200);
+                      }}
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                      placeholder="Tìm kiếm môn học theo mã hoặc tên..."
+                    />
+                    {isSubjectFocused && filteredSubjects.length > 0 && !selectedSubject && (
+                      <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                        <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
+                          <p className="text-sm text-gray-500">Tìm thấy {filteredSubjects.length} môn học</p>
+                        </div>
+                        {filteredSubjects.map(subject => (
+                          <div
+                            key={subject.id}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                            onClick={() => handleSubjectSelect(subject)}
+                          >
+                            <div className="font-medium">{subject.code} - {subject.name}</div>
+                            <div className="text-sm text-gray-500">Số tín chỉ: {subject.totalCredits}</div>
+                          </div>
                         ))}
-                      </select>
-                    </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Class Selection */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Lớp</label>
-                      <select
-                    name="classId"
-                        required
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    defaultValue={classes.find(c => c.name === selectedCourse.class)?.id || ""}
-                    onChange={(e) => handleClassChange(parseInt(e.target.value))}
-                  >
-                    <option value="">Chọn lớp</option>
-                    {classes.map(cls => (
-                      <option 
-                        key={cls.id} 
-                        value={cls.id}
-                      >
-                        {cls.name} ({cls.type === "MAJOR" ? "Lớp ngành" : "Lớp chuyên ngành"}) - {cls.numberOfStudents} sinh viên
-                      </option>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Lớp</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={classSearchText || (selectedClass ? `${selectedClass.name} (${selectedClass.numberOfStudents} sinh viên)` : selectedCourse.class)}
+                      onChange={(e) => {
+                        setClassSearchText(e.target.value);
+                        setSelectedClass(null);
+                      }}
+                      onFocus={() => setIsClassFocused(true)}
+                      onBlur={() => {
+                        setTimeout(() => setIsClassFocused(false), 200);
+                      }}
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                      placeholder="Tìm kiếm lớp..."
+                    />
+                    {isClassFocused && filteredClasses.length > 0 && !selectedClass && (
+                      <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                        <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
+                          <p className="text-sm text-gray-500">Tìm thấy {filteredClasses.length} lớp</p>
+                        </div>
+                        {filteredClasses.map(classItem => (
+                          <div
+                            key={classItem.id}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                            onClick={() => handleClassSelect(classItem)}
+                          >
+                            <div className="font-medium">{classItem.name}</div>
+                            <div className="text-sm text-gray-500">
+                              {classItem.type === "MAJOR" ? "Lớp ngành" : "Lớp chuyên ngành"} - {classItem.numberOfStudents} sinh viên
+                            </div>
+                          </div>
                         ))}
-                      </select>
-                    </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Giảng viên</label>
-                      <select
-                    name="lecturerIds"
-                        required
-                    multiple
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                  >
-                    {lecturers.map(lecturer => (
-                      <option 
-                        key={lecturer.id} 
-                        value={lecturer.id}
-                        selected={selectedLecturers.includes(lecturer)}
-                      >
-                        {lecturer.code} - {lecturer.fullName}
-                      </option>
-                        ))}
-                      </select>
-                  <p className="text-xs text-gray-500 mt-1">Nhấn Ctrl để chọn nhiều giảng viên</p>
-                    </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700">Số sinh viên</label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Lecturer Selection */}
+                <div className="mb-4 col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Giảng viên
+                    <span className="ml-1 text-sm text-gray-500">(Có thể chọn nhiều)</span>
+                  </label>
+                  <div className="relative">
+                    <div className="flex flex-wrap gap-2 p-2 bg-white rounded-lg border border-gray-300 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                      {selectedLecturers.map(lecturer => (
+                        <div
+                          key={lecturer.id}
+                          className="inline-flex items-center bg-blue-50 text-blue-700 rounded-full px-3 py-1 text-sm"
+                        >
+                          <span>{lecturer.code} - {lecturer.fullName}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLecturer(lecturer.id)}
+                            className="ml-2 text-blue-500 hover:text-blue-700"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
                       <input
-                        type="number"
+                        type="text"
+                        value={lecturerSearchText}
+                        onChange={(e) => setLecturerSearchText(e.target.value)}
+                        onFocus={() => setIsLecturerFocused(true)}
+                        onBlur={() => {
+                          setTimeout(() => setIsLecturerFocused(false), 200);
+                        }}
+                        className="flex-1 outline-none min-w-[200px] placeholder:text-gray-400"
+                        placeholder={selectedLecturers.length === 0 ? "Tìm kiếm giảng viên theo mã hoặc tên..." : "Thêm giảng viên..."}
+                      />
+                    </div>
+                    {isLecturerFocused && filteredLecturers.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                        <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
+                          <p className="text-sm text-gray-500">Tìm thấy {filteredLecturers.length} giảng viên</p>
+                        </div>
+                        {filteredLecturers.map(lecturer => (
+                          <div
+                            key={lecturer.id}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                            onClick={() => handleLecturerSelect(lecturer)}
+                          >
+                            <div className="font-medium">{lecturer.code} - {lecturer.fullName}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {selectedLecturers.length === 0 && (
+                    <p className="mt-2 text-sm text-gray-500">Chưa có giảng viên nào được chọn</p>
+                  )}
+                </div>
+
+                {/* Total Students */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Số sinh viên</label>
+                  <input
+                    type="number"
                     name="totalStudents"
-                        required
-                        min="1"
-                    defaultValue={selectedCourse.totalStudents}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
+                    required
+                    min="1"
+                    value={defaultStudentCount || selectedCourse.totalStudents}
+                    onChange={(e) => setDefaultStudentCount(parseInt(e.target.value))}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
                     placeholder="Nhập số sinh viên"
                   />
                 </div>
               </div>
 
               {/* Buttons */}
-              <div className="mt-4 flex justify-end gap-2">
+              <div className="mt-6 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsEditModalOpen(false);
                     setSelectedCourse(null);
+                    resetAllSelections();
                   }}
-                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700"
                 >
                   Lưu thay đổi
                 </button>

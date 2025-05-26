@@ -25,17 +25,19 @@ export default function RootLayout({
   const router = useRouter();
   const isLoginPage = pathname === "/login";
   const isNotFoundPage = pathname === "/not-found";
+  const isForgotPasswordPage = pathname === "/forgotPassword";
 
 
   useEffect(() => {
     const token = localStorage.getItem("token");;
-    if (!AuthService.isAuthenticated(localStorage.getItem("token") || "") && !isLoginPage) {
+    if (!AuthService.isAuthenticated(localStorage.getItem("token") || "") && !isLoginPage && !isForgotPasswordPage) {
       router.push("/login");
     }
   }, [isLoginPage, router, pathname]);
 
+  
 
-  if (isLoginPage || isNotFoundPage) {
+  if (isLoginPage || isNotFoundPage || isForgotPasswordPage) {
     return (
       <html lang="en" className="h-full">
         <body className={`${inter.className} flex flex-col h-full`}>

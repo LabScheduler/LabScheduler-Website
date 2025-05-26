@@ -126,6 +126,17 @@ class UserService {
         return response.data;
     }
 
+    async changePassword(payload: {
+        oldPassword: string;
+        newPassword: string;
+    }): Promise<DataResponse<boolean>> {
+        const response = await axiosConfig.patch("/user/changePassword?oldPassword=" + payload.oldPassword + "&newPassword=" + payload.newPassword);
+        if (!response.data.success) {
+            throw new Error("Lỗi kết nối đến máy chủ :(");
+        }
+        return response.data;
+    }
+
 
 }
 

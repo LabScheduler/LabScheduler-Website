@@ -150,7 +150,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                     <DocumentTextIcon className="flex-shrink-0 h-5 w-5 text-gray-400" />
                     <div className="ml-3">
                       <div className="text-sm text-gray-900">{schedule.class}</div>
-                      <div className="text-xs text-gray-500">Nhóm {schedule.course_group} - Buổi {schedule.course_section}</div>
+                      <div className="text-xs text-gray-500">Nhóm {schedule.course_group} - Tổ {schedule.course_section}</div>
                     </div>
                   </div>
                 </td>

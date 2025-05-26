@@ -28,6 +28,7 @@ import {
   CourseSectionResponse
 } from "@/types/TypeResponse";
 import CourseService from "@/services/CourseService";
+import { all } from "axios";
 
 // Schedule type for internal use
 interface Schedule {
@@ -103,7 +104,7 @@ export default function ScheduleManagementPage() {
   // Form values
   const [dayOfWeek, setDayOfWeek] = useState<number>(1);
   const [startPeriod, setStartPeriod] = useState<number>(1);
-  const [totalPeriod, setTotalPeriod] = useState<number>(1);
+  const [totalPeriod, setTotalPeriod] = useState<number>(4);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -646,6 +647,43 @@ export default function ScheduleManagementPage() {
     }
   };
 
+  // Update selected schedule effect
+  useEffect(() => {
+    if (selectedSchedule) {
+      // Set initial values when editing
+      setDayOfWeek(selectedSchedule.dayOfWeek);
+      setStartPeriod(selectedSchedule.startPeriod);
+      setTotalPeriod(selectedSchedule.totalPeriod);
+      
+      // Find and set the selected room
+      const room = rooms.find(r => r.name === selectedSchedule.room);
+      setSelectedRoom(room || null);
+      
+      // Find and set the selected semester week
+      const week = semesterWeeks.find(w => w.name === selectedSchedule.semesterWeek);
+      setSelectedSemesterWeek(week || null);
+
+      // Fetch course lecturers for this schedule
+      const fetchCourseLecturers = async () => {
+        try {
+          const response = await CourseService.getCourseLecturers(selectedSchedule.courseId);
+          if (response.success) {
+            setCourseLecturers(response.data);
+            // Find and set the selected lecturer from course lecturers
+            const lecturer = response.data.find(l => `${l.fullName}` === selectedSchedule.lecturer);
+            setSelectedLecturer(lecturer || null);
+          } else {
+            setError(response.message || 'Không thể tải danh sách giảng viên của học phần');
+          }
+        } catch (err) {
+          setError('Lỗi khi tải giảng viên của học phần: ' + (err instanceof Error ? err.message : String(err)));
+        }
+      };
+
+      fetchCourseLecturers();
+    }
+  }, [selectedSchedule, rooms, semesterWeeks]);
+
   // Reset form data
   const resetFormData = () => {
     setSelectedCourse(null);
@@ -655,7 +693,8 @@ export default function ScheduleManagementPage() {
     setSelectedClass(null);
     setDayOfWeek(1);
     setStartPeriod(1);
-    setTotalPeriod(1);
+    setTotalPeriod(4);
+    setSelectedSchedule(null);
   };
 
   // Show loading state
@@ -1057,7 +1096,6 @@ export default function ScheduleManagementPage() {
                       setSelectedLecturer(lecturer || null);
                     }}
                     required
-                    disabled={!selectedCourse}
                   >
                     <option value="">Chọn giảng viên</option>
                     {courseLecturers.map(lecturer => (
@@ -1253,7 +1291,7 @@ export default function ScheduleManagementPage() {
               <button
                 onClick={() => {
                   setIsEditModalOpen(false);
-                  setSelectedSchedule(null);
+                  resetFormData();
                 }}
                 className="text-gray-400 hover:text-gray-500"
               >
@@ -1308,7 +1346,7 @@ export default function ScheduleManagementPage() {
                       <option 
                         key={room.id} 
                         value={room.id}
-                        disabled={room.status !== "AVAILABLE" && room.id !== selectedSchedule.roomId}
+                        disabled={room.status !== "AVAILABLE" && room.name !== selectedSchedule.room}
                       >
                         {room.name} ({room.capacity} chỗ ngồi) - {room.status === "AVAILABLE" ? "Có sẵn" : "Không khả dụng"}
                       </option>
@@ -1340,7 +1378,7 @@ export default function ScheduleManagementPage() {
                   <label className="block text-sm font-medium text-gray-700">Ngày trong tuần</label>
                   <select
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    value={dayOfWeek || selectedSchedule.dayOfWeek}
+                    value={dayOfWeek}
                     onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
                     required
                   >
@@ -1358,7 +1396,7 @@ export default function ScheduleManagementPage() {
                   <label className="block text-sm font-medium text-gray-700">Tiết bắt đầu</label>
                   <select
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    value={startPeriod || selectedSchedule.startPeriod}
+                    value={startPeriod}
                     onChange={(e) => setStartPeriod(parseInt(e.target.value))}
                     required
                   >
@@ -1374,7 +1412,7 @@ export default function ScheduleManagementPage() {
                   <label className="block text-sm font-medium text-gray-700">Số tiết</label>
                   <select
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    value={totalPeriod || selectedSchedule.totalPeriod}
+                    value={totalPeriod}
                     onChange={(e) => setTotalPeriod(parseInt(e.target.value))}
                     required
                   >
@@ -1412,7 +1450,7 @@ export default function ScheduleManagementPage() {
                   type="button"
                   onClick={() => {
                     setIsEditModalOpen(false);
-                    setSelectedSchedule(null);
+                    resetFormData();
                   }}
                   className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                 >

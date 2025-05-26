@@ -118,6 +118,40 @@ class AuthService {
         }
         return null;
     }
+
+
+    //Forgot password methods
+    async forgotPassword(username: string): Promise<DataResponse<string>> {
+        const response = await axiosConfig.post<DataResponse<string>>(
+            `/auth/forgotPassword?username=${username}`,
+        )
+        if (!response.data.success) {
+            throw new Error("Lỗi kết nối đến máy chủ :(");
+        }
+        return response.data;
+    }
+
+    async verifyOtp(username: string, otp: string): Promise<DataResponse<boolean>> {
+        const response = await axiosConfig.post<DataResponse<boolean>>(
+            `/auth/verifyOtp?username=${username}&otp=${otp}`,
+        );
+        if (!response.data.success) {
+            throw new Error("Lỗi kết nối đến máy chủ :(");
+        }
+        return response.data;
+    }
+
+    async resetPassword(username: string, newPassword: string): Promise<DataResponse<string>> {
+        const response = await axiosConfig.post<DataResponse<string>>(
+            `/auth/resetPassword?username=${username}&newPassword=${newPassword}`,
+        );
+        if (!response.data.success) {
+            throw new Error("Lỗi kết nối đến máy chủ :(");
+        }
+        return response.data;
+    }
+
+    
 }
 
 export default new AuthService();
