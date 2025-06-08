@@ -5,13 +5,10 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Menu from "@/components/layouts/Menu";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import AuthService from "@/services/AuthService";
 
 const inter = Inter({ subsets: ["latin"] });
-
-
-
 
 
 
@@ -24,17 +21,17 @@ export default function RootLayout({
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === "/login";
-  const isNotFoundPage = pathname === "/not-found";
+  const isNotFoundPage = pathname === "/notFound";
   const isForgotPasswordPage = pathname === "/forgotPassword";
-
+  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");;
+    const token = localStorage.getItem("token");
+    
     if (!AuthService.isAuthenticated(localStorage.getItem("token") || "") && !isLoginPage && !isForgotPasswordPage) {
       router.push("/login");
     }
   }, [isLoginPage, router, pathname]);
-
   
 
   if (isLoginPage || isNotFoundPage || isForgotPasswordPage) {

@@ -61,7 +61,7 @@ export interface StatisticsResponse {
   totalPracticeSchedulesInSemester: number;
   totalStudents: number;
   totalLecturers: number;
-  totalPendingRequests: number;
+  totalPendingReports: number;
 }
 
 export interface Department {
@@ -84,7 +84,8 @@ export interface RoomResponse {
   capacity: number;
   status: "AVAILABLE" | "UNAVAILABLE" | "REPAIRING";
   description: string;
-  lastUpdated: Date
+  lastUpdated: Date;
+  type: "COMPUTER_LAB" | "LECTURE_HALL";
 }
 
 export interface SubjectResponse {
@@ -156,6 +157,7 @@ export interface ScheduleResponse {
   lecturer: string;
   semesterWeek: string;
   status: string;
+  type: "THEORY" | "PRACTICE";
 }
 
 export interface CourseSectionResponse{
@@ -164,19 +166,13 @@ export interface CourseSectionResponse{
   totalStudentsInSection: number;
 }
 
-export interface LecturerRequestResponse {
+export interface ReportResponse {
   id: number;
-  lecturer: string;
-  subject: string;
-  groupNumber: number;
-  sectionNumber: number;
-  newRoom: string;
-  newSemesterWeek: string;
-  newDayOfWeek: number;
-  newStartPeriod: number;
-  newTotalPeriod: number;
-  lecturerBody: string;
-  managerBody: string;
-  status: string;
+  title: string;
+  authorContent: string;
   createdAt: Date;
+  author: string;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  managerContent: string | null;
+  updatedAt: Date;
 }

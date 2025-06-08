@@ -241,7 +241,6 @@ export default function ProfilePage() {
       return (
         <div className="bg-white rounded-xl shadow p-8 text-center">
           <div className="animate-pulse">
-            <div className="h-32 w-32 bg-gray-200 rounded-full mx-auto mb-4"></div>
             <div className="h-6 w-48 bg-gray-200 rounded mx-auto mb-3"></div>
             <div className="h-4 w-64 bg-gray-200 rounded mx-auto"></div>
           </div>
@@ -271,32 +270,8 @@ export default function ProfilePage() {
 
     return (
       <>
-        {/* Profile header with avatar */}
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-          <div className="bg-blue-600 px-6 py-8">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-white flex items-center justify-center text-blue-600 text-3xl font-bold">
-                {userProfile.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
-              </div>
-              <div className="text-center md:text-left">
-                <h2 className="text-2xl font-bold text-white">{userProfile.fullName}</h2>
-                <p className="text-blue-100 mt-1">{userProfile.email}</p>
-                <div className="mt-2">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    {userRole}
-                  </span>
-                  {userProfile.status && (
-                    <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${userProfile.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                      }`}>
-                      {userProfile.status === "ACTIVE" ? "Đang hoạt động" : "Không hoạt động"}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Basic information */}
+        {/* Basic information */}
+        <div className="bg-white rounded-xl shadow overflow-hidden mb-6">
           <div className="px-6 py-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">Thông tin cá nhân</h3>
@@ -330,6 +305,16 @@ export default function ProfilePage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Ngày sinh</label>
                 <div className="p-2 bg-gray-50 rounded-md text-sm">{formatDate(userProfile.birthday)}</div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                <div className={`p-2 rounded-md text-sm inline-flex items-center ${userProfile.status === "ACTIVE" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                  {userProfile.status === "ACTIVE" ? "Đang hoạt động" : "Không hoạt động"}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
+                <div className="p-2 bg-gray-50 rounded-md text-sm">{userRole}</div>
               </div>
             </div>
           </div>

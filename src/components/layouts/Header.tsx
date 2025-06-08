@@ -46,13 +46,13 @@ const Header = () => {
       <div className="flex items-center gap-4">
         {/* User Profile */}
         <div className="flex items-center gap-2">
-          <div className="bg-gray-100 p-1.5 rounded-full">
+          {/* <div className="bg-gray-100 p-1.5 rounded-full">
             <UserCircleIcon className="w-7 h-7 text-gray-600" />
-          </div>
-          <div className="hidden md:block">
+          </div> */}
+          {/* <div className="hidden md:block">
             <p className="text-sm font-medium text-gray-800">{user}</p>
             <p className="text-xs text-gray-500 capitalize">{role.toLowerCase()}</p>
-          </div>
+          </div> */}
         </div>
       </div>
     </header>

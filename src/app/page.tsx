@@ -67,14 +67,14 @@ export default function Home() {
 
   // Schedule bar chart data
   const scheduleBarData = {
-    labels: ["Lịch thực hành", "Học phần", "Yêu cầu đang chờ"],
+    labels: ["Lịch thực hành", "Học phần", "Báo cáo đang chờ"],
     datasets: [
       {
         label: "Số lượng",
         data: statistics ? [
           statistics.totalPracticeSchedulesInSemester, 
           statistics.totalCoursesInSemester,
-          statistics.totalPendingRequests
+          statistics.totalPendingReports
         ] : [0, 0, 0],
         backgroundColor: ["#10b981", "#6366f1", "#f59e0b"],
         borderRadius: 6,

@@ -98,13 +98,19 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
         <thead className="bg-gray-50">
           <tr>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Môn học
+              Học phần
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Nhóm
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Lớp
+            </th>
+            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Tổ
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Giảng viên
-            </th>
-            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Lớp / Nhóm
             </th>
             <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Phòng
@@ -137,20 +143,20 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
                     </div>
                   </div>
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  Nhóm {schedule.course_group}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {schedule.class}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  {schedule.course_section}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <UserIcon className="flex-shrink-0 h-5 w-5 text-gray-400" />
                     <div className="ml-3">
                       <div className="text-sm text-gray-900">{schedule.lecturer}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <DocumentTextIcon className="flex-shrink-0 h-5 w-5 text-gray-400" />
-                    <div className="ml-3">
-                      <div className="text-sm text-gray-900">{schedule.class}</div>
-                      <div className="text-xs text-gray-500">Nhóm {schedule.course_group} - Tổ {schedule.course_section}</div>
                     </div>
                   </div>
                 </td>
@@ -181,7 +187,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = ({
             ))
           ) : (
             <tr>
-              <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+              <td colSpan={9} className="px-6 py-4 text-center text-sm text-gray-500">
                 Không có lịch thực hành nào được tìm thấy
               </td>
             </tr>

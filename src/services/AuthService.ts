@@ -40,6 +40,7 @@ class AuthService {
 
             if (typeof window !== 'undefined') {
                 localStorage.setItem("token", response.data.data.token);
+                document.cookie = `token=${response.data.data.token}; path=/; max-age=3600`; // Set cookie with 1 hour expiration
             }
             return response.data;
         } catch (error) {
@@ -49,7 +50,8 @@ class AuthService {
 
     logout() {
         if (typeof window !== 'undefined') {
-            localStorage.removeItem("token"); 
+            localStorage.removeItem("token");
+            document.cookie = `token=; path=/; max-age=0`; // Clear cookie
             window.location.href = "/login";
         }
     }

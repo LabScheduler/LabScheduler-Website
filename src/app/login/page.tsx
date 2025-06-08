@@ -20,7 +20,20 @@ export default function LoginPage() {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token');
       if (token && !AuthService.isAuthenticated()) {
-        router.push('/');
+        const role = AuthService.getRole(token);
+        if (role) {
+          switch (role) {
+            case 'MANAGER':
+              router.push('/');
+              break;
+            case 'LECTURER':
+              router.push('/lecturer/schedules');
+              break;
+            case 'STUDENT':
+              router.push('/schedules');
+              break;
+          }
+        }
       }
     }
   }, [router]);
@@ -41,7 +54,20 @@ export default function LoginPage() {
     try {
       const response = await AuthService.login(formData);
       if (response.success) {
-        router.push('/');
+        const role = response.data.role;
+        if (role) {
+          switch (role) {
+            case 'MANAGER':
+              router.push('/');
+              break;
+            case 'LECTURER':
+              router.push('/lecturer/schedules');
+              break;
+            case 'STUDENT':
+              router.push('/schedules');
+              break;
+          }
+        }
       } else {
         setError(response.message || 'Đăng nhập không thành công');
       }
@@ -112,7 +138,7 @@ export default function LoginPage() {
           </form>
 
           <div className="text-center">
-            <button 
+            <button
               onClick={() => router.push('/forgotPassword')}
               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
             >

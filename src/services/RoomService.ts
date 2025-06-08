@@ -16,12 +16,14 @@ class RoomService{
         capacity: number,
         status: "AVAILABLE" | "UNAVAILABLE" | "REPAIRING",
         description: string,
+        type: "COMPUTER_LAB" | "LECTURE_HALL"
     ): Promise<DataResponse<RoomResponse>> {
         const response = await axiosConfig.post("/room/create", {
             name,
             capacity,
             status,
-            description
+            description,
+            type
         })
         if(!response.data.success)
             throw new Error("Lỗi kết nối đến máy chủ :(");

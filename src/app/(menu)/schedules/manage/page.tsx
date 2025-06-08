@@ -5,8 +5,7 @@ import {
   PlusIcon, 
   PencilIcon, 
   TrashIcon,
-  XCircleIcon,
-  EyeIcon
+  XCircleIcon
 } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
@@ -109,7 +108,6 @@ export default function ScheduleManagementPage() {
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
 
   // Success notification states
@@ -196,9 +194,8 @@ export default function ScheduleManagementPage() {
         
         // Fetch schedules for the selected class and semester
         if (classes.length > 0) {
-          const response = await ScheduleService.getscheduleByClassId(
-            selectedSemester.id,
-            classes[0].id
+          const response = await ScheduleService.getscheduleBySemesterId(
+            selectedSemester.id
           );
           
           if (response.success) {
@@ -647,9 +644,22 @@ export default function ScheduleManagementPage() {
     }
   };
 
+  // Reset form data
+  const resetFormData = () => {
+    setSelectedCourse(null);
+    setSelectedCourseSection(null);
+    setSelectedRoom(null);
+    setSelectedLecturer(null);
+    setSelectedClass(null);
+    setDayOfWeek(1);
+    setStartPeriod(1);
+    setTotalPeriod(4);
+    setSelectedSchedule(null);
+  };
+
   // Update selected schedule effect
   useEffect(() => {
-    if (selectedSchedule) {
+    if (selectedSchedule && isEditModalOpen) {
       // Set initial values when editing
       setDayOfWeek(selectedSchedule.dayOfWeek);
       setStartPeriod(selectedSchedule.startPeriod);
@@ -666,7 +676,7 @@ export default function ScheduleManagementPage() {
       // Fetch course lecturers for this schedule
       const fetchCourseLecturers = async () => {
         try {
-          const response = await CourseService.getCourseLecturers(selectedSchedule.courseId);
+          const response = await UserService.getAllLecturers();
           if (response.success) {
             setCourseLecturers(response.data);
             // Find and set the selected lecturer from course lecturers
@@ -682,20 +692,7 @@ export default function ScheduleManagementPage() {
 
       fetchCourseLecturers();
     }
-  }, [selectedSchedule, rooms, semesterWeeks]);
-
-  // Reset form data
-  const resetFormData = () => {
-    setSelectedCourse(null);
-    setSelectedCourseSection(null);
-    setSelectedRoom(null);
-    setSelectedLecturer(null);
-    setSelectedClass(null);
-    setDayOfWeek(1);
-    setStartPeriod(1);
-    setTotalPeriod(4);
-    setSelectedSchedule(null);
-  };
+  }, [selectedSchedule, rooms, semesterWeeks, isEditModalOpen]);
 
   // Show loading state
   if (loading) {
@@ -739,7 +736,7 @@ export default function ScheduleManagementPage() {
               setIsSuccessDialogOpen(false);
               setSuccessSchedule(null);
               if (actionType === 'conflict') {
-                // Do nothing, modal will show again due to isAddModalOpen being true
+                // Keep add modal open for conflict case
               } else {
                 setActionType(null);
                 setIsAddModalOpen(false);
@@ -759,6 +756,7 @@ export default function ScheduleManagementPage() {
                 "Môn học": successSchedule.subject,
                 "Lớp": successSchedule.class,
                 "Nhóm": `Nhóm ${successSchedule.courseGroup} - Buổi ${successSchedule.courseSection}`,
+                "Tổ": `${successSchedule.courseSection}`,
                 "Phòng": successSchedule.room,
                 "Giảng viên": successSchedule.lecturer,
                 "Thời gian": `${getWeekdayName(successSchedule.dayOfWeek)}, ${getPeriodRange(successSchedule.startPeriod, successSchedule.totalPeriod)}`,
@@ -767,6 +765,7 @@ export default function ScheduleManagementPage() {
                 "Môn học": successSchedule.subject,
                 "Lớp": successSchedule.class,
                 "Nhóm": `Nhóm ${successSchedule.courseGroup} - Buổi ${successSchedule.courseSection}`,
+                "Tổ": `${successSchedule.courseSection}`,
                 "Phòng": successSchedule.room,
                 "Giảng viên": successSchedule.lecturer,
                 "Thời gian": `${getWeekdayName(successSchedule.dayOfWeek)}, ${getPeriodRange(successSchedule.startPeriod, successSchedule.totalPeriod)}`,
@@ -862,10 +861,16 @@ export default function ScheduleManagementPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Môn học
+                  Học phần
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Lớp / Nhóm
+                  Nhóm
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Lớp
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tổ
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Giảng viên
@@ -895,7 +900,13 @@ export default function ScheduleManagementPage() {
                       {schedule.subject}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {schedule.class} - Nhóm {schedule.courseGroup} - Buổi {schedule.courseSection}
+                      Nhóm {schedule.courseGroup}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {schedule.class}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {schedule.courseSection}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {schedule.lecturer}
@@ -914,16 +925,6 @@ export default function ScheduleManagementPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => {
-                            setSelectedSchedule(schedule);
-                            setIsDetailModalOpen(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Xem chi tiết"
-                        >
-                          <EyeIcon className="w-5 h-5" />
-                        </button>
                         <button
                           onClick={() => {
                             setSelectedSchedule(schedule);
@@ -1196,88 +1197,6 @@ export default function ScheduleManagementPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-      
-      {/* Details Modal */}
-      {isDetailModalOpen && selectedSchedule && (
-        <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-1/2 shadow-lg rounded-md bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Chi tiết lịch thực hành</h3>
-              <button
-                onClick={() => {
-                  setIsDetailModalOpen(false);
-                  setSelectedSchedule(null);
-                }}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Môn học</h4>
-                <p className="text-sm font-medium">{selectedSchedule.subject}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Lớp / Nhóm</h4>
-                <p className="text-sm font-medium">
-                  {selectedSchedule.class} - Nhóm {selectedSchedule.courseGroup} - Buổi {selectedSchedule.courseSection}
-                </p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Giảng viên</h4>
-                <p className="text-sm font-medium">{selectedSchedule.lecturer}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Phòng</h4>
-                <p className="text-sm font-medium">{selectedSchedule.room}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Thời gian</h4>
-                <p className="text-sm font-medium">
-                  {getWeekdayName(selectedSchedule.dayOfWeek)}, {getPeriodRange(selectedSchedule.startPeriod, selectedSchedule.totalPeriod)}
-                </p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Tuần học</h4>
-                <p className="text-sm font-medium">{selectedSchedule.semesterWeek}</p>
-              </div>
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Trạng thái</h4>
-                <div className="text-sm font-medium">
-                  {getStatusBadge(selectedSchedule.status)}
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDetailModalOpen(false);
-                  setSelectedSchedule(null);
-                }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Đóng
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDetailModalOpen(false);
-                  setIsEditModalOpen(true);
-                }}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700"
-              >
-                Chỉnh sửa
-              </button>
-            </div>
           </div>
         </div>
       )}

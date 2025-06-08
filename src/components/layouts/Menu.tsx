@@ -57,6 +57,13 @@ const menuItems = [
         visible: ["MANAGER"],
       },
       {
+        icon: <AcademicCapIcon className="w-5 h-5" />,
+        label: "Teaching Schedule",
+        name: "Lịch dạy",
+        href: "/lecturer/schedules",
+        visible: ["LECTURER"],
+      },
+      {
         icon: <CalendarIcon className="w-5 h-5" />,
         label: "Schedule",
         name: "Lịch thực hành",
@@ -72,9 +79,9 @@ const menuItems = [
       },
       {
         icon: <DocumentTextIcon className="w-5 h-5" />,
-        label: "Requests",
-        name: "Yêu cầu giảng viên",
-        href: "/requests",
+        label: "Reports",
+        name: "Báo cáo",
+        href: "/reports",
         visible: ["MANAGER"],
       },
       {
@@ -99,24 +106,12 @@ const menuItems = [
         visible: ["MANAGER"],
       },
       {
-        icon: <AcademicCapIcon className="w-5 h-5" />,
-        label: "Teaching Schedule",
-        name: "Lịch dạy",
-        href: "/lecturer/schedules",
-        visible: ["LECTURER"],
-      },
-      {
         icon: <PaperAirplaneIcon className="w-5 h-5" />,
-        label: "Request Schedule",
-        name: "Yêu cầu",
-        href: "/lecturer/requests",
+        label: "Lecturer Reports",
+        name: "Báo cáo",
+        href: "/lecturer/reports",
         visible: ["LECTURER"],
       },
-    ],
-  },
-  {
-    title: "Khác",
-    items: [
       {
         icon: <UserCircleIcon className="w-5 h-5" />,
         label: "Profile",
@@ -139,8 +134,6 @@ const Menu = () => {
   const pathname = usePathname();
 
   const [role, setRole] = useState("");
-
-
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -197,8 +190,8 @@ const Menu = () => {
                         }
                       }}
                       className={`flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 hover:text-blue-700 transition-colors ${pathname === item.href
-                          ? "bg-blue-100 text-blue-700 font-medium"
-                          : "text-gray-700"
+                        ? "bg-blue-100 text-blue-700 font-medium"
+                        : "text-gray-700"
                         }`}
                     >
                       <span className={`${pathname === item.href ? "text-blue-600" : "text-gray-500"}`}>

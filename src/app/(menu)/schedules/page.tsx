@@ -179,6 +179,7 @@ export default function SchedulesPage() {
           
           if (weeksResponse.success) {
             setSemesterWeeks(weeksResponse.data);
+            // Set the first week as selected by default
             if (weeksResponse.data.length > 0) {
               setSelectedWeek(weeksResponse.data[0].name);
             }
@@ -204,21 +205,33 @@ export default function SchedulesPage() {
         switch (scheduleViewType) {
           case 'class':
             const classResponse = await ClassService.getAllClasses("");
-            options = classResponse.data.map(c => ({ id: c.id, name: c.name }));
+            if (classResponse.success) {
+              options = classResponse.data.map(c => ({ id: c.id, name: c.name }));
+            }
             break;
           case 'lecturer':
             const lecturerResponse = await UserService.getAllLecturers();
-            options = lecturerResponse.data.map(l => ({ id: l.id, name: l.fullName }));
+            if (lecturerResponse.success) {
+              options = lecturerResponse.data.map(l => ({ id: l.id, name: l.fullName }));
+            }
             break;
           case 'course':
             const courseResponse = await CourseService.getAllCoursesBySemesterId(currentSemester.id);
-            options = courseResponse.data.map(c => ({ id: c.id, name: c.subject }));
+            if (courseResponse.success) {
+              options = courseResponse.data.map(c => ({ id: c.id, name: c.subject }));
+            }
             break;
         }
         
         setViewOptions(options);
-        setSelectedViewId(options.length > 0 ? options[0].id : null);
+        // Set the first option as selected by default if there are options
+        if (options.length > 0) {
+          setSelectedViewId(options[0].id);
+        } else {
+          setSelectedViewId(null);
+        }
       } catch (err) {
+        console.error('Error fetching view options:', err);
         setError('Lỗi khi tải dữ liệu: ' + (err instanceof Error ? err.message : String(err)));
       } finally {
         setLoadingViewOptions(false);
@@ -252,11 +265,13 @@ export default function SchedulesPage() {
         
         if (response && response.success) {
           const mappedSchedules = response.data.map(mapScheduleResponseToScheduleItem);
+          console.log('Mapped schedules:', mappedSchedules); // Debug log
           setSchedules(mappedSchedules);
         } else {
           setError('Không thể tải danh sách lịch học');
         }
       } catch (err) {
+        console.error('Error fetching schedules:', err); // Debug log
         setError('Lỗi khi tải lịch học: ' + (err instanceof Error ? err.message : String(err)));
       } finally {
         setLoading(false);
@@ -396,6 +411,14 @@ export default function SchedulesPage() {
     });
   };
 
+  // Effect to handle view mode changes
+  useEffect(() => {
+    // When switching to grid view, if "all" is selected, select the first week
+    if (viewMode === 'grid' && selectedWeek === 'all' && semesterWeeks.length > 0) {
+      setSelectedWeek(semesterWeeks[0].name);
+    }
+  }, [viewMode, selectedWeek, semesterWeeks]);
+
   // Show loading state
   if (loading) {
     return (
@@ -515,12 +538,22 @@ export default function SchedulesPage() {
               onChange={(e) => setSelectedWeek(e.target.value)}
               className="mx-2 px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
             >
-                {semesterWeeks.map(week => (
-                  <option key={week.id} value={week.name}>
-                    {week.name} ({new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')})
-                  </option>
-              ))}
-              <option value="all">Tất cả</option>
+                {viewMode === 'table' ? (
+                  <>
+                    <option value="all">Tất cả</option>
+                    {semesterWeeks.map(week => (
+                      <option key={week.id} value={week.name}>
+                        {week.name} ({new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')})
+                      </option>
+                    ))}
+                  </>
+                ) : (
+                  semesterWeeks.map(week => (
+                    <option key={week.id} value={week.name}>
+                      {week.name} ({new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')})
+                    </option>
+                  ))
+                )}
             </select>
             
             <button
@@ -533,17 +566,6 @@ export default function SchedulesPage() {
             </button>
           </div>
           </div>
-          
-          {/* Management link - only for managers */}
-          {AuthService.getRole() === "MANAGER" && (
-            <Link 
-              href="/schedules/manage"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
-            >
-              <Cog6ToothIcon className="w-5 h-5" />
-              Quản lý lịch học
-            </Link>
-          )}
           
           {/* Filter panel component */}
           <FilterPanel

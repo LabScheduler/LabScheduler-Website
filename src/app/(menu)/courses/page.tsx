@@ -798,7 +798,7 @@ export default function CoursesPage() {
                 }
 
                 if (isNaN(totalSection) || totalSection <= 0) {
-                  alert('Số nhóm không hợp lệ');
+                  alert('Số tổ không hợp lệ');
                   return;
                 }
 
@@ -984,14 +984,14 @@ export default function CoursesPage() {
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Số nhóm</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Số tổ</label>
                     <input
                       type="number"
                       name="totalSection"
                       required
                       min="1"
                       className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
-                      placeholder="Nhập số nhóm"
+                      placeholder="Nhập số tổ"
                     />
                   </div>
                   <div className="mb-4">
