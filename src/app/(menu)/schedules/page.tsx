@@ -265,7 +265,6 @@ export default function SchedulesPage() {
         
         if (response && response.success) {
           const mappedSchedules = response.data.map(mapScheduleResponseToScheduleItem);
-          console.log('Mapped schedules:', mappedSchedules); // Debug log
           setSchedules(mappedSchedules);
         } else {
           setError('Không thể tải danh sách lịch học');

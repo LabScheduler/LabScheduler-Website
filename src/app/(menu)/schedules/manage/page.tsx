@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -316,7 +316,6 @@ export default function ScheduleManagementPage() {
 
         // Fetch course lecturers
         const lecturersResponse = await CourseService.getCourseLecturers(selectedCourse.id);
-        console.log('Course lecturers response:', lecturersResponse); // Debug log
 
         if (lecturersResponse.success && Array.isArray(lecturersResponse.data)) {
           setCourseLecturers(lecturersResponse.data);
@@ -968,16 +967,18 @@ export default function ScheduleManagementPage() {
         </div>
         
         {/* Pagination */}
-        {paginatedSchedules.length > 0 && (
+        {schedules.length > 0 && (
           <div className="px-6 py-4 border-t border-gray-200">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              pageSize={pageSize}
-              onPageSizeChange={handlePageSizeChange}
-              totalItems={totalItems}
-            />
+            <Suspense fallback={<div>Loading pagination...</div>}>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                pageSize={pageSize}
+                onPageSizeChange={handlePageSizeChange}
+                totalItems={totalItems}
+              />
+            </Suspense>
           </div>
         )}
       </div>

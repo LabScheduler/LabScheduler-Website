@@ -265,9 +265,9 @@ export default function LecturerReportsPage() {
         onClose={() => {
           setIsEditModalOpen(false);
           setSelectedReport(null);
-        }}
+      }}
         onSubmit={handleUpdateReport}
-        initialData={selectedReport}
+        initialData={selectedReport ?? undefined}
         mode="edit"
       />
 

@@ -44,7 +44,6 @@ export function middleware(request: NextRequest) {
         }
 
         const userRole = decoded.authorities[0]; 
-        console.log("User role:", userRole);
 
         // Allow access to common routes
         if (COMMON_ROUTES.some(route => pathname.startsWith(route))) {
@@ -53,7 +52,6 @@ export function middleware(request: NextRequest) {
 
         if (pathname === '/' || pathname === '') {
             if (userRole === 'MANAGER') {
-                console.log(userRole)
                 return NextResponse.next();
             }
         }

@@ -1,6 +1,6 @@
+"use client";
 import React from 'react';
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon } from '@heroicons/react/24/outline';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 interface PaginationProps {

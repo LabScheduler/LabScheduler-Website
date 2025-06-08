@@ -1,3 +1,4 @@
+"use client";
 import { useState, useEffect, useMemo } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
@@ -24,15 +25,25 @@ export function usePagination<T>({
 }: UsePaginationProps<T>): UsePaginationReturn<T> {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  let searchParams;
+  
+  try {
+    searchParams = useSearchParams();
+  } catch (error) {
+    // If useSearchParams fails (during SSR or before Suspense is ready),
+    // we'll use null and fall back to defaults
+    searchParams = null;
+  }
   
   // Initialize with values from URL or defaults
   const [currentPage, setCurrentPage] = useState<number>(() => {
+    if (!searchParams) return initialPage;
     const urlPage = searchParams.get('page');
     return urlPage ? parseInt(urlPage, 10) : initialPage;
   });
   
   const [pageSize, setPageSize] = useState<number>(() => {
+    if (!searchParams) return defaultPageSize;
     const urlPageSize = searchParams.get('pageSize');
     return urlPageSize ? parseInt(urlPageSize, 10) : defaultPageSize;
   });
@@ -50,13 +61,15 @@ export function usePagination<T>({
 
   // Create new URL when pagination changes
   useEffect(() => {
+    if (!searchParams) return;
+    
     const params = new URLSearchParams(searchParams.toString());
     params.set('page', currentPage.toString());
     params.set('pageSize', pageSize.toString());
     
     // Replace state to avoid creating a new history entry for each pagination change
     router.replace(`${pathname}?${params.toString()}`);
-  }, [currentPage, pageSize, pathname, router]);
+  }, [currentPage, pageSize, pathname, router, searchParams]);
   
   // Handlers
   const handlePageChange = (page: number) => {

@@ -14,7 +14,6 @@ import AuthService from '@/services/AuthService';
 import ScheduleService from '@/services/ScheduleService';
 import SemesterService from '@/services/SemesterService';
 import { ScheduleResponse, SemesterResponse, SemesterWeekResponse } from '@/types/TypeResponse';
-import { CreateRequest } from '@/components/requests/create-request';
 
 type ViewMode = 'table' | 'grid';
 

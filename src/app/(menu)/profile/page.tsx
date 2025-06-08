@@ -11,7 +11,6 @@ export default function ProfilePage() {
   const [userRole, setUserRole] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
   const [updateFormData, setUpdateFormData] = useState({
     email: "",
@@ -47,7 +46,6 @@ export default function ProfilePage() {
         // Get the user ID
         const id = AuthService.getUserId(token);
         setUserId(id);
-        console.log("User ID:", id);
         // Get the user profile based on role
         const response = await UserService.getUserProfile();
         setUserProfile(response.data.data);
@@ -104,11 +102,7 @@ export default function ProfilePage() {
       setUpdateSuccess(true);
       setUpdateLoading(false);
 
-      // Close the modal after a short delay
-      setTimeout(() => {
-        setIsEditModalOpen(false);
-        setUpdateSuccess(false);
-      }, 1500);
+
     } catch (err) {
       console.error("Error updating profile:", err);
       setUpdateError("Có lỗi xảy ra khi cập nhật thông tin");
@@ -275,15 +269,7 @@ export default function ProfilePage() {
           <div className="px-6 py-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">Thông tin cá nhân</h3>
-              {(
-                <button
-                  onClick={() => setIsEditModalOpen(true)}
-                  className="flex items-center text-sm text-blue-600 hover:text-blue-800"
-                >
-                  <PencilIcon className="h-4 w-4 mr-1" />
-                  Chỉnh sửa
-                </button>
-              )}
+
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -348,127 +334,6 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-
-  // Edit Profile Modal
-  const renderEditProfileModal = () => {
-    if (!isEditModalOpen || !userProfile) return null;
-
-    return (
-      <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
-        <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-white">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Cập nhật thông tin cá nhân</h3>
-            <button
-              onClick={() => setIsEditModalOpen(false)}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {updateSuccess && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md text-green-700">
-              Cập nhật thông tin thành công!
-            </div>
-          )}
-
-          {updateError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md text-red-700">
-              {updateError}
-            </div>
-          )}
-
-          <form onSubmit={handleUpdateProfile}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên</label>
-                <input
-                  type="text"
-                  defaultValue={userProfile.fullName}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50"
-                />
-                <p className="text-xs text-gray-500 mt-1">Họ tên không thể thay đổi</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={updateFormData.email}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Nhập email"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={updateFormData.phone}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Nhập số điện thoại"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Giới tính</label>
-                <select
-                  defaultValue={userProfile.gender ? "true" : "false"}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 appearance-none"
-                >
-                  <option value="true">Nam</option>
-                  <option value="false">Nữ</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Giới tính không thể thay đổi</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ngày sinh</label>
-                <input
-                  type="date"
-                  defaultValue={userProfile.birthday?.split('T')[0]}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50"
-                />
-                <p className="text-xs text-gray-500 mt-1">Ngày sinh không thể thay đổi</p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                disabled={updateLoading}
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center"
-                disabled={updateLoading}
-              >
-                {updateLoading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Đang lưu...
-                  </>
-                ) : "Lưu thay đổi"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
-  };
 
   // Change Password Modal
   const renderChangePasswordModal = () => {
@@ -606,7 +471,6 @@ export default function ProfilePage() {
 
       {renderProfileContent()}
       {renderChangePasswordButton()}
-      {renderEditProfileModal()}
       {renderChangePasswordModal()}
     </div>
   );

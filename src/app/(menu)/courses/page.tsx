@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
@@ -24,7 +24,6 @@ interface Course {
 }
 
 const mapCourseResponseToCourse = (courseResponse: CourseResponse): Course => {
-  console.log('Mapping course response:', courseResponse);
   return {
     id: courseResponse.id,
     subject: courseResponse.subject,
@@ -343,15 +342,12 @@ export default function CoursesPage() {
         totalSection,
         startWeekId
       };
-      console.log('Sending payload:', payload);
 
       const response = await CourseService.createCourse(payload);
-      console.log('API Response:', response);
 
       if (response.success) {
         if (response.data && response.data.course) {
           const newCourse = mapCourseResponseToCourse(response.data.course);
-          console.log('Mapped new course:', newCourse);
           setCourses(prev => [...prev, newCourse]);
           setSuccessCourse(newCourse);
           setActionType('add');
@@ -385,7 +381,6 @@ export default function CoursesPage() {
       try {
         const courseToDelete = courses.find(c => c.id === courseId);
         const response = await CourseService.deleteCourse(courseId);
-        console.log( "JSUSCRY"+ response)
         if (response.success) {
           setCourses(prev => prev.filter(course => course.id !== courseId));
           if (courseToDelete) {
@@ -730,16 +725,18 @@ export default function CoursesPage() {
         </div>
         
         {/* Pagination */}
-        {paginatedCourses.length > 0 && (
+        {courses.length > 0 && (
           <div className="px-6 py-4 border-t border-gray-200">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              pageSize={pageSize}
-              onPageSizeChange={handlePageSizeChange}
-              totalItems={totalItems}
-            />
+            <Suspense fallback={<div>Loading pagination...</div>}>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                pageSize={pageSize}
+                onPageSizeChange={handlePageSizeChange}
+                totalItems={totalItems}
+              />
+            </Suspense>
           </div>
         )}
       </div>
@@ -806,18 +803,6 @@ export default function CoursesPage() {
                   alert('Vui lòng chọn tuần bắt đầu');
                   return;
                 }
-
-                // Log values for debugging
-                console.log('Form values:', {
-                  subjectId: selectedSubject.id,
-                  classId: selectedClass.id,
-                  lecturerIds: selectedLecturers.map(l => l.id),
-                  semesterId: selectedSemester.id,
-                  totalStudents,
-                  totalSection,
-                  startWeekId
-                });
-
                 handleAddCourse(
                   selectedSubject.id,
                   selectedClass.id,

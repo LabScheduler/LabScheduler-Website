@@ -8,7 +8,6 @@ class ClassService {
     //"" = get all class
     async getAllClasses(classType?:"major" | "specialization" | "" ): Promise<DataResponse<ClassResponse[]>> {
         const response = await axiosConfig.get(`/class?classType=${classType}`);
-        console.log(response);
         if (!response.data.success) {
             throw new Error('Lỗi kết nối đến máy chủ :(');
         }

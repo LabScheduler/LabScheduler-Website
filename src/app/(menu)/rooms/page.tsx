@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
@@ -16,6 +16,7 @@ interface Room {
   status: 'AVAILABLE' | 'UNAVAILABLE' | 'REPAIRING';
   description: string;
   last_updated: string;
+  type: 'LECTURE_HALL' | 'COMPUTER_LAB';
 }
 
 const mapRoomResponseToRoom = (room: RoomResponse): Room => ({
@@ -25,6 +26,7 @@ const mapRoomResponseToRoom = (room: RoomResponse): Room => ({
   status: room.status,
   description: room.description,
   last_updated: typeof room.lastUpdated === 'string' ? room.lastUpdated : new Date(room.lastUpdated).toISOString(),
+  type: room.type,
 });
 
 export default function RoomsPage() {
@@ -158,7 +160,8 @@ export default function RoomsPage() {
         newRoom.name,
         newRoom.capacity,
         newRoom.status,
-        newRoom.description
+        newRoom.description,
+        newRoom.type,
       );
       
       if (response.success) {
@@ -314,7 +317,8 @@ export default function RoomsPage() {
             "Mã phòng": successRoom.name,
             "Sức chứa": `${successRoom.capacity} người`,
             "Trạng thái": getStatusLabel(successRoom.status),
-            "Mô tả": successRoom.description || "Không có"
+            "Mô tả": successRoom.description || "Không có",
+            "Loại phòng": successRoom.type === 'LECTURE_HALL' ? "Giảng đường" : "Phòng máy",
           }}
         />
       )}
@@ -361,6 +365,9 @@ export default function RoomsPage() {
                   Mô tả
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Loại phòng
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cập nhật cuối
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -384,6 +391,9 @@ export default function RoomsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {room.description || "Không có"}
+                  </td>
+                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {room.type === 'LECTURE_HALL' ? "Giảng đường" : "Phòng máy"}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDateTime(room.last_updated)}
@@ -416,14 +426,16 @@ export default function RoomsPage() {
         {/* Add pagination component */}
         {rooms.length > 0 && (
           <div className="px-6 py-4 border-t border-gray-200">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              pageSize={pageSize}
-              onPageSizeChange={handlePageSizeChange}
-              totalItems={totalItems}
-            />
+            <Suspense fallback={<div>Loading pagination...</div>}>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                pageSize={pageSize}
+                onPageSizeChange={handlePageSizeChange}
+                totalItems={totalItems}
+              />
+            </Suspense>
           </div>
         )}
       </div>
@@ -442,7 +454,8 @@ export default function RoomsPage() {
                   name: formData.get('name') as string,
                   capacity: parseInt(formData.get('capacity') as string, 10),
                   status: formData.get('status') as 'AVAILABLE' | 'UNAVAILABLE' | 'REPAIRING',
-                  description: formData.get('description') as string
+                  description: formData.get('description') as string,
+                  type: formData.get('type') as 'LECTURE_HALL' | 'COMPUTER_LAB'
                 });
               }}>
                 <div className="grid grid-cols-2 gap-4">
@@ -477,6 +490,17 @@ export default function RoomsPage() {
                       <option value="AVAILABLE">Đang hoạt động</option>
                       <option value="REPAIRING">Đang sửa chữa</option>
                       <option value="UNAVAILABLE">Không hoạt động</option>
+                    </select>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700">Loại phòng</label>
+                    <select
+                      name="type"
+                      required
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 appearance-none bg-white"
+                    >
+                      <option value="LECTURE_HALL">Giảng đường</option>
+                      <option value="COMPUTER_LAB">Phòng máy</option>
                     </select>
                   </div>
                   <div className="mb-4 col-span-2">

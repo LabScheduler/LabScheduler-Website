@@ -31,7 +31,7 @@ const Header = () => {
         <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
           <div className="flex items-center gap-3">
             <Image 
-              src="/logo.jpg" 
+              src="/favicon.png" 
               alt="LabScheduler Logo" 
               width={40} 
               height={40} 

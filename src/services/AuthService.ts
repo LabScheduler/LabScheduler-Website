@@ -106,7 +106,6 @@ class AuthService {
         const storedToken = token || this.getToken();
         if (token) {
             const payload = this.getPayload(token);
-            console.log("payload", payload);
             return payload?.jti || null;
         }
         return null;

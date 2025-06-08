@@ -1,5 +1,4 @@
 "use client";
-
 import Header from "../components/layouts/Header";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -9,9 +8,6 @@ import { useEffect, useState } from "react";
 import AuthService from "@/services/AuthService";
 
 const inter = Inter({ subsets: ["latin"] });
-
-
-
 
 export default function RootLayout({
   children,
@@ -27,12 +23,22 @@ export default function RootLayout({
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    
+
     if (!AuthService.isAuthenticated(localStorage.getItem("token") || "") && !isLoginPage && !isForgotPasswordPage) {
       router.push("/login");
     }
   }, [isLoginPage, router, pathname]);
-  
+
+
+  const HeadTags = () => (
+    <head>
+      <title>LabScheduler</title>
+      <link rel="icon" href="/favicon.png" type="image/png" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    </head>
+  );
+
+
 
   if (isLoginPage || isNotFoundPage || isForgotPasswordPage) {
     return (
@@ -46,6 +52,7 @@ export default function RootLayout({
 
   return (
     <html lang="en" className="h-full">
+      <HeadTags />
       <body className={`${inter.className} flex flex-col h-full bg-gray-50`}>
         <Header />
         <div className="flex flex-1 h-[calc(100vh-64px)]">
