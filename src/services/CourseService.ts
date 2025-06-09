@@ -19,7 +19,6 @@ class CourseService{
             lecturersIds: number[],
             semesterId: number,
             totalStudents: number,
-            totalSection: number,
             startWeekId: number,
         }
     ): Promise<DataResponse<NewCourseResponse>> {

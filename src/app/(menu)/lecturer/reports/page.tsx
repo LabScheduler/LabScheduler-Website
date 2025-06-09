@@ -9,6 +9,7 @@ import { FilterPanel } from '@/components/ui/filter-panel';
 import { NotificationDialog } from '@/components/ui/notification-dialog';
 import ReportService from '@/services/ReportService';
 import { ReportResponse } from '@/types/TypeResponse';
+import AuthService from '@/services/AuthService';
 
 export default function LecturerReportsPage() {
   // State
@@ -70,7 +71,8 @@ export default function LecturerReportsPage() {
   const loadReports = async () => {
     try {
       setLoading(true);
-      const response = await ReportService.getAllReports();
+      const userId = AuthService.getUserId(localStorage.getItem('token') || undefined);
+      const response = await ReportService.getReportByUserId(userId || undefined);
       if (response.success) {
         setReports(response.data);
       } else {
@@ -278,9 +280,11 @@ export default function LecturerReportsPage() {
           setSelectedReport(null);
         }}
         report={selectedReport}
-        onStatusChange={async (reportId) => {
-          await handleCancelReport(reportId);
-        }}
+        onStatusChange={selectedReport?.status === 'PENDING' ? 
+          async (reportId: number, newStatus?: string) => {
+            await handleCancelReport(reportId);
+          } 
+          : async () => {/* No action for non-PENDING reports */}}
         mode="lecturer"
       />
 

@@ -14,8 +14,8 @@ class ReportService {
         return response.data;
     }
 
-    async getReportByUserId(userId: number): Promise<DataResponse<ReportResponse[]>> {
-        const response = await axiosConfig.get<DataResponse<ReportResponse[]>>(`/reports/${userId}`);
+    async getReportByUserId(userId?: number): Promise<DataResponse<ReportResponse[]>> {
+        const response = await axiosConfig.get<DataResponse<ReportResponse[]>>(`/reports/${userId}/reports`);
 
         if (!response.data.success) {
             throw new Error(response.data.message);

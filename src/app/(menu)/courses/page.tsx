@@ -19,7 +19,8 @@ interface Course {
   semester: string;
   lecturers: string[];
   groupNumber: number;
-  totalStudents: number;
+  totalStudents?: number;
+  maxStudents?: number;
   class: string;
 }
 
@@ -31,6 +32,7 @@ const mapCourseResponseToCourse = (courseResponse: CourseResponse): Course => {
     lecturers: courseResponse.lecturers || [],
     groupNumber: courseResponse.groupNumber,
     totalStudents: courseResponse.totalStudents,
+    maxStudents: courseResponse.maxStudents,
     class: courseResponse.class,
   };
 };
@@ -96,7 +98,7 @@ export default function CoursesPage() {
 
   // Add course detail modal states
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedCourseDetail, setSelectedCourseDetail] = useState<CourseResponse | null>(null);
+  const [selectedCourseDetail, setSelectedCourseDetail] = useState<Course | null>(null);
   const [courseSections, setCourseSections] = useState<CourseSectionResponse[]>([]);
   const [isLoadingSections, setIsLoadingSections] = useState(false);
 
@@ -324,7 +326,6 @@ export default function CoursesPage() {
     classId: number,
     lecturerIds: number[],
     totalStudents: number,
-    totalSection: number,
     startWeekId: number
   ) => {
     if (!selectedSemester) {
@@ -339,7 +340,6 @@ export default function CoursesPage() {
         lecturersIds: lecturerIds,
         semesterId: selectedSemester.id,
         totalStudents,
-        totalSection,
         startWeekId
       };
 
@@ -579,7 +579,7 @@ export default function CoursesPage() {
             "Nhóm": successCourse.groupNumber.toString(),
             "Lớp": successCourse.class,
             "Giảng viên": successCourse.lecturers.join(", "),
-            "Số sinh viên": `${successCourse.totalStudents} sinh viên`
+            "Số sinh viên tối đa": `${successCourse.maxStudents} sinh viên`
           }}
         />
       )}
@@ -657,7 +657,10 @@ export default function CoursesPage() {
                   Giảng viên
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Số sinh viên
+                  Số sinh viên thực tế
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Số sinh viên tối đa
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Thao tác
@@ -685,6 +688,9 @@ export default function CoursesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {course.totalStudents} sinh viên
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {course.maxStudents} sinh viên
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
@@ -786,16 +792,10 @@ export default function CoursesPage() {
                 }
 
                 const totalStudents = parseInt(formData.get('totalStudents') as string);
-                const totalSection = parseInt(formData.get('totalSection') as string);
                 const startWeekId = parseInt(formData.get('startWeekId') as string);
 
                 if (isNaN(totalStudents) || totalStudents <= 0) {
                   alert('Số sinh viên không hợp lệ');
-                  return;
-                }
-
-                if (isNaN(totalSection) || totalSection <= 0) {
-                  alert('Số tổ không hợp lệ');
                   return;
                 }
 
@@ -808,7 +808,6 @@ export default function CoursesPage() {
                   selectedClass.id,
                   selectedLecturers.map(l => l.id),
                   totalStudents,
-                  totalSection,
                   startWeekId
                 );
               }}>
@@ -969,17 +968,6 @@ export default function CoursesPage() {
                     />
                   </div>
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Số tổ</label>
-                    <input
-                      type="number"
-                      name="totalSection"
-                      required
-                      min="1"
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
-                      placeholder="Nhập số tổ"
-                    />
-                  </div>
-                  <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Tuần bắt đầu</label>
                     <select
                       name="startWeekId"
@@ -1050,7 +1038,7 @@ export default function CoursesPage() {
                 selectedSubject?.id || subjects.find(s => s.name === selectedCourse.subject)?.id || 0,
                 selectedClass?.id || classes.find(c => c.name === selectedCourse.class)?.id || 0,
                 selectedLecturers.map(l => l.id),
-                defaultStudentCount || selectedCourse.totalStudents
+                defaultStudentCount ?? selectedCourse.totalStudents ?? 0
               );
             }}>
               <div className="grid grid-cols-2 gap-6">
@@ -1386,7 +1374,7 @@ export default function CoursesPage() {
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-700">Danh sách nhóm thực hành</h4>
+                <h4 className="font-medium text-gray-700">Danh sách nhóm tổ</h4>
                 {isLoadingSections ? (
                   <div className="flex justify-center items-center h-32">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
@@ -1408,7 +1396,7 @@ export default function CoursesPage() {
                                 Nhóm {section.sectionNumber}
                               </td>
                               <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                                {section.totalStudentsInSection} sinh viên
+                                {section.maxStudentsInSection} sinh viên
                               </td>
                             </tr>
                           ))}

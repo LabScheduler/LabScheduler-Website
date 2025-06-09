@@ -209,7 +209,7 @@ export default function ProfilePage() {
           <div className="p-2 bg-gray-50 rounded-md text-sm">{lecturer.code || "N/A"}</div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Khoa/Bộ môn</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Khoa</label>
           <div className="p-2 bg-gray-50 rounded-md text-sm">{lecturer.department || "N/A"}</div>
         </div>
       </div>
@@ -300,7 +300,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
-                <div className="p-2 bg-gray-50 rounded-md text-sm">{userRole}</div>
+                <div className="p-2 bg-gray-50 rounded-md text-sm">{userRole === "STUDENT" ? "Sinh viên" : userRole === "LECTURER" ? "Giảng viên" : "Quản lý"}</div>
               </div>
             </div>
           </div>

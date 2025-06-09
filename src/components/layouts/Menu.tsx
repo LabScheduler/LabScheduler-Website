@@ -52,7 +52,7 @@ const menuItems = [
       {
         icon: <BuildingOfficeIcon className="w-5 h-5" />,
         label: "Rooms",
-        name: "Phòng máy",
+        name: "Phòng học",
         href: "/rooms",
         visible: ["MANAGER"],
       },

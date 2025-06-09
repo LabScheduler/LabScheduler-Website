@@ -135,6 +135,7 @@ export interface CourseResponse {
   lecturers: string[];
   groupNumber: number;
   totalStudents: number;
+  maxStudents: number;
   class: string;
 }
 
@@ -163,7 +164,7 @@ export interface ScheduleResponse {
 export interface CourseSectionResponse{
   id: number;
   sectionNumber: number;
-  totalStudentsInSection: number;
+  maxStudentsInSection: number;
 }
 
 export interface ReportResponse {

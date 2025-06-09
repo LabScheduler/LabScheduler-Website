@@ -41,7 +41,7 @@ export const ReportDetailsModal: React.FC<ReportDetailsModalProps> = ({
   };
 
   const canEdit = mode === 'lecturer' && report.status === 'PENDING';
-  const canCancel = mode === 'lecturer' && ['PENDING', 'APPROVED'].includes(report.status);
+  const canCancel = mode === 'lecturer' && report.status === 'PENDING';
 
   return (
     <div className="fixed inset-0 bg-gray-600/20 backdrop-blur-sm overflow-y-auto h-full w-full">
@@ -143,14 +143,6 @@ export const ReportDetailsModal: React.FC<ReportDetailsModalProps> = ({
                   className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors duration-150"
                 >
                   Hủy báo cáo
-                </button>
-              )}
-              {canEdit && (
-                <button
-                  onClick={() => handleStatusChange()}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors duration-150"
-                >
-                  Chỉnh sửa
                 </button>
               )}
             </div>

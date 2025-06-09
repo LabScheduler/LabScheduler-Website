@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ScheduleTable, ScheduleItem } from '@/components/schedules/schedule.table';
 import { ScheduleGrid } from '@/components/schedules/schedule.grid';
 import { 
@@ -8,14 +8,24 @@ import {
   Squares2X2Icon, 
   ChevronLeftIcon, 
   ChevronRightIcon,
-  PaperAirplaneIcon
+  PaperAirplaneIcon,
+  FunnelIcon
 } from '@heroicons/react/24/outline';
+import { FilterPanel } from '@/components/ui/filter-panel';
 import AuthService from '@/services/AuthService';
 import ScheduleService from '@/services/ScheduleService';
 import SemesterService from '@/services/SemesterService';
 import { ScheduleResponse, SemesterResponse, SemesterWeekResponse } from '@/types/TypeResponse';
 
 type ViewMode = 'table' | 'grid';
+
+// Filter interface
+interface Filters {
+  subject: string;
+  room: string;
+  status: string;
+  class: string;
+}
 
 // Helper function to map ScheduleResponse to ScheduleItem
 const mapScheduleResponseToScheduleItem = (schedule: ScheduleResponse): ScheduleItem => ({
@@ -48,6 +58,100 @@ export default function LecturerSchedulesPage() {
   const [currentSemester, setCurrentSemester] = useState<SemesterResponse | null>(null);
   const [semesterWeeks, setSemesterWeeks] = useState<SemesterWeekResponse[]>([]);
   const [semesters, setSemesters] = useState<SemesterResponse[]>([]);
+
+  // Filter state
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<Filters>({
+    subject: '',
+    room: '',
+    status: '',
+    class: ''
+  });
+
+  // Filter options
+  const filterOptions = useMemo(() => [
+    {
+      id: 'subject',
+      label: 'Môn học',
+      type: 'search' as const,
+      value: filters.subject,
+      placeholder: 'Tìm kiếm môn học...'
+    },
+    {
+      id: 'room',
+      label: 'Phòng học',
+      type: 'search' as const,
+      value: filters.room,
+      placeholder: 'Tìm kiếm phòng học...'
+    },
+    {
+      id: 'class',
+      label: 'Lớp',
+      type: 'search' as const,
+      value: filters.class,
+      placeholder: 'Tìm kiếm lớp...'
+    },
+    {
+      id: 'status',
+      label: 'Trạng thái',
+      type: 'select' as const,
+      value: filters.status,
+      options: [
+        { value: '', label: 'Tất cả' },
+        { value: 'COMPLETED', label: 'Hoàn thành' },
+        { value: 'IN_PROGRESS', label: 'Đang diễn ra' },
+        { value: 'CANCELLED', label: 'Đã hủy' },
+        { value: 'PENDING', label: 'Chờ thực hiện' }
+      ]
+    }
+  ], [filters]);
+
+  // Filter handlers
+  const handleFilterChange = (filterId: string, value: string) => {
+    setFilters(prev => ({
+      ...prev,
+      [filterId]: value
+    }));
+  };
+
+  const resetFilters = () => {
+    setFilters({
+      subject: '',
+      room: '',
+      status: '',
+      class: ''
+    });
+  };
+
+  // Filter schedules based on current filters
+  const filteredSchedules = useMemo(() => {
+    return selectedWeek === 'all' 
+      ? schedules.filter(schedule => {
+          const matchesSubject = !filters.subject || 
+            schedule.subject_name.toLowerCase().includes(filters.subject.toLowerCase()) ||
+            schedule.subject_code.toLowerCase().includes(filters.subject.toLowerCase());
+          const matchesRoom = !filters.room || 
+            schedule.room.toLowerCase().includes(filters.room.toLowerCase());
+          const matchesClass = !filters.class || 
+            schedule.class.toLowerCase().includes(filters.class.toLowerCase());
+          const matchesStatus = !filters.status || schedule.status === filters.status;
+          
+          return matchesSubject && matchesRoom && matchesClass && matchesStatus;
+        })
+      : schedules.filter(schedule => {
+          const matchesWeek = schedule.semester_week === selectedWeek;
+          const matchesSubject = !filters.subject || 
+            schedule.subject_name.toLowerCase().includes(filters.subject.toLowerCase()) ||
+            schedule.subject_code.toLowerCase().includes(filters.subject.toLowerCase());
+          const matchesRoom = !filters.room || 
+            schedule.room.toLowerCase().includes(filters.room.toLowerCase());
+          const matchesClass = !filters.class || 
+            schedule.class.toLowerCase().includes(filters.class.toLowerCase());
+          const matchesStatus = !filters.status || schedule.status === filters.status;
+          
+          return matchesWeek && matchesSubject && matchesRoom && matchesClass && matchesStatus;
+        });
+  }, [schedules, selectedWeek, filters]);
 
   // Load semesters and current semester data
   useEffect(() => {
@@ -114,13 +218,6 @@ export default function LecturerSchedulesPage() {
     
     fetchSchedules();
   }, [currentSemester]);
-
-  // Filter schedules based on selected week
-  const filteredSchedules = React.useMemo(() => {
-    return selectedWeek === 'all' 
-      ? schedules 
-      : schedules.filter(schedule => schedule.semester_week === selectedWeek);
-  }, [schedules, selectedWeek]);
 
   const handleViewScheduleDetails = (schedule: ScheduleItem) => {
     setSelectedSchedule(schedule);
@@ -251,22 +348,35 @@ export default function LecturerSchedulesPage() {
             </div>
           </div>
           
-          {/* View mode toggle */}
-          <div className="flex bg-gray-100 rounded-md p-1">
-            <button
-              className={`flex items-center justify-center p-2 rounded-md ${viewMode === 'table' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setViewMode('table')}
-              aria-label="View as table"
-            >
-              <TableCellsIcon className="w-5 h-5" />
-            </button>
-            <button
-              className={`flex items-center justify-center p-2 rounded-md ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-              onClick={() => setViewMode('grid')}
-              aria-label="View as grid"
-            >
-              <Squares2X2Icon className="w-5 h-5" />
-            </button>
+          {/* View mode toggle and filters */}
+          <div className="flex items-center gap-4">
+            {/* Filter panel */}
+            <FilterPanel
+              isOpen={isFilterOpen}
+              onToggle={() => setIsFilterOpen(!isFilterOpen)}
+              filterOptions={filterOptions}
+              onFilterChange={handleFilterChange}
+              onReset={resetFilters}
+              title="Lọc lịch dạy"
+            />
+
+            {/* View mode toggle */}
+            <div className="flex bg-gray-100 rounded-md p-1">
+              <button
+                className={`flex items-center justify-center p-2 rounded-md ${viewMode === 'table' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setViewMode('table')}
+                aria-label="View as table"
+              >
+                <TableCellsIcon className="w-5 h-5" />
+              </button>
+              <button
+                className={`flex items-center justify-center p-2 rounded-md ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setViewMode('grid')}
+                aria-label="View as grid"
+              >
+                <Squares2X2Icon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
