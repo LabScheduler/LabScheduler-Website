@@ -37,7 +37,7 @@ class ClassService {
         name: string,
         majorId: number,
     ): Promise<DataResponse<ClassResponse>> {
-        const response = await axiosConfig.patch(`/class/${id}`, {
+        const response = await axiosConfig.put(`/class/${id}`, {
             name,
             majorId,
         });

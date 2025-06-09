@@ -355,16 +355,12 @@ export default function CoursesPage() {
     setIsAddModalOpen(false);
           resetFormState();
           resetAllSelections();
-        } else {
-          console.error('Invalid response structure:', response);
-          setError('Định dạng phản hồi không hợp lệ');
         }
       } else {
         setError(response.message || 'Có lỗi khi tạo học phần');
       }
     } catch (err) {
-      console.error('Error creating course:', err);
-      setError('Lỗi khi tạo học phần: ' + (err instanceof Error ? err.message : String(err)));
+      setError("Học phần này đã tồn tại hoặc đã có lỗi xảy ra, vui lòng thử lại sau.");
     }
   };
 

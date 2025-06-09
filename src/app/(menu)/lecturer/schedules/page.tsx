@@ -359,23 +359,23 @@ export default function LecturerSchedulesPage() {
               onReset={resetFilters}
               title="Lọc lịch dạy"
             />
-
-            {/* View mode toggle */}
-            <div className="flex bg-gray-100 rounded-md p-1">
-              <button
-                className={`flex items-center justify-center p-2 rounded-md ${viewMode === 'table' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setViewMode('table')}
-                aria-label="View as table"
-              >
-                <TableCellsIcon className="w-5 h-5" />
-              </button>
-              <button
-                className={`flex items-center justify-center p-2 rounded-md ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setViewMode('grid')}
-                aria-label="View as grid"
-              >
-                <Squares2X2Icon className="w-5 h-5" />
-              </button>
+          
+          {/* View mode toggle */}
+          <div className="flex bg-gray-100 rounded-md p-1">
+            <button
+              className={`flex items-center justify-center p-2 rounded-md ${viewMode === 'table' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setViewMode('table')}
+              aria-label="View as table"
+            >
+              <TableCellsIcon className="w-5 h-5" />
+            </button>
+            <button
+              className={`flex items-center justify-center p-2 rounded-md ${viewMode === 'grid' ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setViewMode('grid')}
+              aria-label="View as grid"
+            >
+              <Squares2X2Icon className="w-5 h-5" />
+            </button>
             </div>
           </div>
         </div>

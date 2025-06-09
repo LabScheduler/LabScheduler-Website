@@ -25,6 +25,9 @@ class CourseService{
         const response = await axiosConfig.post("/course", payload);
         if(!response.data.success)
             throw new Error("Lỗi kết nối đến máy chủ :(");
+        if(response.status == 404){
+            throw new Error("Học phần này đã tồn tại");
+        }
         return response.data;
     }
 
