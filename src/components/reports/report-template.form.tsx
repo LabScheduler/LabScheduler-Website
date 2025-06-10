@@ -12,7 +12,7 @@ interface ScheduleFormData {
   courseInfo: string;
   weekInfo: string;
   timeInfo: string;
-  reason?: string;
+  reason: string;
 }
 
 interface RoomFormData {
@@ -52,12 +52,7 @@ export const ReportTemplateForm: React.FC<ReportTemplateFormProps> = ({
     let content = `Thông tin học phần: ${data.courseInfo}\n`;
     content += `Tuần học: ${data.weekInfo}\n`;
     content += `Thời gian: ${data.timeInfo}\n`;
-    
-    if (data.type === 'cancel' && data.reason) {
-      content += `\nLý do huỷ: ${data.reason}`;
-    } else if (data.type === 'update' && data.reason) {
-      content += `\nLý do thay đổi: ${data.reason}`;
-    }
+    content += `\nLý do: ${data.reason}`;
 
     return {
       title: titles[data.type],
@@ -83,6 +78,43 @@ export const ReportTemplateForm: React.FC<ReportTemplateFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate schedule data
+    if (selectedTemplate === 'schedule') {
+      if (!scheduleData.courseInfo.trim()) {
+        alert('Vui lòng nhập thông tin học phần');
+        return;
+      }
+      if (!scheduleData.weekInfo.trim()) {
+        alert('Vui lòng nhập thông tin tuần học');
+        return;
+      }
+      if (!scheduleData.timeInfo.trim()) {
+        alert('Vui lòng nhập thời gian');
+        return;
+      }
+      if (!scheduleData.reason.trim()) {
+        alert('Vui lòng nhập lý do');
+        return;
+      }
+    }
+    
+    // Validate room data
+    if (selectedTemplate === 'room') {
+      if (!roomData.roomNumber.trim()) {
+        alert('Vui lòng nhập số phòng');
+        return;
+      }
+      if (!roomData.description.trim()) {
+        alert('Vui lòng nhập mô tả');
+        return;
+      }
+      if (!roomData.impact.trim()) {
+        alert('Vui lòng nhập ảnh hưởng đến việc thực hành');
+        return;
+      }
+    }
+
     const formattedData = selectedTemplate === 'schedule' 
       ? formatScheduleContent(scheduleData)
       : formatRoomContent(roomData);
@@ -184,19 +216,18 @@ export const ReportTemplateForm: React.FC<ReportTemplateFormProps> = ({
                 />
               </div>
 
-              {(scheduleData.type === 'cancel' || scheduleData.type === 'update') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Lý do {scheduleData.type === 'cancel' ? 'huỷ' : 'thay đổi'}
-                  </label>
-                  <textarea
-                    value={scheduleData.reason}
-                    onChange={(e) => setScheduleData(prev => ({ ...prev, reason: e.target.value }))}
-                    rows={3}
-                    className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Lý do {scheduleData.type === 'add' ? 'thêm' : scheduleData.type === 'update' ? 'thay đổi' : 'huỷ'}
+                </label>
+                <textarea
+                  value={scheduleData.reason}
+                  onChange={(e) => setScheduleData(prev => ({ ...prev, reason: e.target.value }))}
+                  rows={3}
+                  className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                  placeholder={`Nhập lý do ${scheduleData.type === 'add' ? 'thêm' : scheduleData.type === 'update' ? 'thay đổi' : 'huỷ'} lịch thực hành...`}
+                />
+              </div>
             </div>
           ) : (
             <div className="space-y-4">

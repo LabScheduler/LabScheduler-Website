@@ -808,12 +808,42 @@ export default function CoursesPage() {
                 );
               }}>
                 <div className="grid grid-cols-2 gap-6">
+                  {/* Semester Selection */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Kỳ học</label>
+                    <select
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                      value={selectedSemester?.id || ""}
+                      onChange={async (e) => {
+                        const semester = semesters.find(s => s.id === parseInt(e.target.value));
+                        setSelectedSemester(semester || null);
+                        if (semester) {
+                          try {
+                            const response = await SemesterService.getSemesterWeekBySemesterId(semester.id.toString());
+                            if (response.success) {
+                              setSemesterWeeks(response.data);
+                            }
+                          } catch (error) {
+                            setError('Lỗi khi tải tuần học: ' + (error instanceof Error ? error.message : String(error)));
+                          }
+                        }
+                      }}
+                    >
+                      <option value="">Chọn kỳ học</option>
+                      {semesters.map((semester) => (
+                        <option key={semester.id} value={semester.id}>
+                          {semester.name} ({new Date(semester.startDate).toLocaleDateString('vi-VN')} - {new Date(semester.endDate).toLocaleDateString('vi-VN')})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Subject Selection */}
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Môn học</label>
                     <div className="relative">
-                    <input
-                      type="text"
+                      <input
+                        type="text"
                         value={subjectSearchText || (selectedSubject ? `${selectedSubject.code} - ${selectedSubject.name}` : '')}
                         onChange={(e) => {
                           setSubjectSearchText(e.target.value);
@@ -830,7 +860,7 @@ export default function CoursesPage() {
                         <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
                           <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
                             <p className="text-sm text-gray-500">Tìm thấy {filteredSubjects.length} môn học</p>
-                  </div>
+                          </div>
                           {filteredSubjects.map(subject => (
                             <div
                               key={subject.id}
@@ -841,7 +871,7 @@ export default function CoursesPage() {
                               <div className="text-sm text-gray-500">Số tín chỉ: {subject.totalCredits}</div>
                             </div>
                           ))}
-                  </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -881,12 +911,48 @@ export default function CoursesPage() {
                               </div>
                             </div>
                           ))}
-                  </div>
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Lecturer Selection with Tag Input */}
+                  {/* Total Students */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Số sinh viên</label>
+                    <input
+                      type="number"
+                      name="totalStudents"
+                      required
+                      min="1"
+                      value={defaultStudentCount || ""}
+                      onChange={(e) => setDefaultStudentCount(parseInt(e.target.value))}
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                      placeholder="Nhập số sinh viên"
+                    />
+                  </div>
+
+                  {/* Start Week Selection */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Tuần bắt đầu</label>
+                    <select
+                      name="startWeekId"
+                      required
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
+                      disabled={!selectedSemester}
+                    >
+                      <option value="">Chọn tuần bắt đầu</option>
+                      {semesterWeeks.map(week => (
+                        <option key={week.id} value={week.id}>
+                          {week.name} ({new Date(week.startDate).toLocaleDateString('vi-VN')} - {new Date(week.endDate).toLocaleDateString('vi-VN')})
+                        </option>
+                      ))}
+                    </select>
+                    {!selectedSemester && (
+                      <p className="mt-1 text-sm text-gray-500">Vui lòng chọn kỳ học trước</p>
+                    )}
+                  </div>
+
+                  {/* Lecturer Selection */}
                   <div className="mb-4 col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Giảng viên
@@ -923,7 +989,7 @@ export default function CoursesPage() {
                           className="flex-1 outline-none min-w-[200px] placeholder:text-gray-400"
                           placeholder={selectedLecturers.length === 0 ? "Tìm kiếm giảng viên theo mã hoặc tên..." : "Thêm giảng viên..."}
                         />
-                  </div>
+                      </div>
                       {isLecturerFocused && filteredLecturers.length > 0 && (
                         <div className="absolute z-10 w-full mt-1 bg-white rounded-md shadow-lg border border-gray-200 max-h-60 overflow-auto">
                           <div className="sticky top-0 bg-gray-50 px-4 py-2 border-b border-gray-200">
@@ -948,36 +1014,6 @@ export default function CoursesPage() {
                       <p className="mt-2 text-sm text-gray-500">Chưa có giảng viên nào được chọn</p>
                     )}
                   </div>
-
-                  {/* Other fields remain unchanged */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Số sinh viên</label>
-                    <input
-                      type="number"
-                      name="totalStudents"
-                      required
-                      min="1"
-                      value={defaultStudentCount || ""}
-                      onChange={(e) => setDefaultStudentCount(parseInt(e.target.value))}
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
-                      placeholder="Nhập số sinh viên"
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tuần bắt đầu</label>
-                    <select
-                      name="startWeekId"
-                      required
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-4 py-2.5"
-                    >
-                      <option value="">Chọn tuần bắt đầu</option>
-                      {semesterWeeks.map(week => (
-                        <option key={week.id} value={week.id}>
-                          {week.name}
-                        </option>
-                      ))}
-                    </select>
-                </div>
                 </div>
 
                 {/* Buttons */}
@@ -1160,7 +1196,10 @@ export default function CoursesPage() {
                           <div
                             key={lecturer.id}
                             className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
-                            onClick={() => handleLecturerSelect(lecturer)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLecturerSelect(lecturer);
+                            }}
                           >
                             <div className="font-medium">{lecturer.code} - {lecturer.fullName}</div>
                           </div>
