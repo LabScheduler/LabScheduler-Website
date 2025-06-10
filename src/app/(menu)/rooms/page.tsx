@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
-import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
@@ -44,7 +44,7 @@ export default function RoomsPage() {
   });
   const [successRoom, setSuccessRoom] = useState<Room | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'add' | 'edit' | null>(null);
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -207,28 +207,6 @@ export default function RoomsPage() {
     }
   };
 
-  const handleDeleteRoom = async (roomId: number) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa phòng học này?")) {
-      try {
-        const response = await RoomService.deleteRoom(roomId.toString());
-        if (response.success) {
-          // Update UI after successful deletion
-          const deletedRoom = rooms.find(r => r.id === roomId);
-          setRooms(prev => prev.filter(room => room.id !== roomId));
-          if (deletedRoom) {
-            setSuccessRoom(deletedRoom);
-            setActionType('delete');
-            setIsSuccessDialogOpen(true);
-          }
-        } else {
-          setError(response.message || 'Có lỗi khi xóa phòng học');
-        }
-      } catch (err) {
-        setError('Có lỗi khi xóa phòng học: ' + (err instanceof Error ? err.message : String(err)));
-      }
-    }
-  };
-
   const getStatusBadgeClass = (status: Room['status']) => {
     switch (status) {
       case 'AVAILABLE':
@@ -310,8 +288,7 @@ export default function RoomsPage() {
           }}
           title={
             actionType === 'add' ? "Thêm phòng học thành công!" :
-            actionType === 'edit' ? "Cập nhật phòng học thành công!" :
-            "Xóa phòng học thành công!"
+            "Cập nhật phòng học thành công!"
           }
           details={{
             "Mã phòng": successRoom.name,
@@ -404,17 +381,10 @@ export default function RoomsPage() {
                         setSelectedRoom(room);
                         setIsEditModalOpen(true);
                       }}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
+                      className="text-blue-600 hover:text-blue-900"
                       title="Chỉnh sửa"
                     >
                       <PencilIcon className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteRoom(room.id)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Xóa"
-                    >
-                      <TrashIcon className="w-5 h-5" />
                     </button>
                   </td>
                 </tr>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
-import { PlusIcon, PencilIcon, TrashIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
@@ -73,7 +73,7 @@ export default function LecturersPage() {
   });
   const [successLecturer, setSuccessLecturer] = useState<Lecturer | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<'add' | 'edit' | 'lock' | 'unlock' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'lock' | 'unlock' | null>(null);
 
   
 
@@ -262,29 +262,6 @@ export default function LecturersPage() {
     }
   };
 
-  const handleDeleteLecturer = async (lecturerId: number) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa giảng viên này?")) {
-      try {
-        const response = await UserService.deleteUser(lecturerId);
-        if (response.success) {
-          // Update UI after successful deletion
-          setLecturers(prev => prev.filter(lecturer => lecturer.id !== lecturerId));
-          // Show success message
-          const deletedLecturer = lecturers.find(l => l.id === lecturerId);
-          if (deletedLecturer) {
-            setSuccessLecturer(deletedLecturer);
-            setActionType('delete');
-            setIsSuccessDialogOpen(true);
-          }
-        } else {
-          setError(response.message || 'Failed to delete lecturer');
-        }
-      } catch (err) {
-        setError('Error deleting lecturer: ' + (err instanceof Error ? err.message : String(err)));
-      }
-    }
-  };
-
   const handleLockAccount = async (lecturerId: number) => {
     try {
       const response = await UserService.lockUserAccount(lecturerId);
@@ -383,8 +360,7 @@ export default function LecturersPage() {
             actionType === 'add' ? "Thêm giảng viên thành công!" :
             actionType === 'edit' ? "Cập nhật giảng viên thành công!" :
             actionType === 'lock' ? "Khóa tài khoản giảng viên thành công!" :
-            actionType === 'unlock' ? "Mở khóa tài khoản giảng viên thành công!" :
-            "Xóa giảng viên thành công!"
+            "Mở khóa tài khoản giảng viên thành công!"
           }
           details={{
             "Mã GV": successLecturer.code,
@@ -523,7 +499,7 @@ export default function LecturersPage() {
                             handleLockAccount(lecturer.id);
                           }
                         }}
-                        className="text-yellow-600 hover:text-yellow-900 mr-4"
+                        className="text-yellow-600 hover:text-yellow-900"
                         title="Khóa tài khoản"
                       >
                         <LockClosedIcon className="w-5 h-5" />
@@ -535,19 +511,12 @@ export default function LecturersPage() {
                             handleUnlockAccount(lecturer.id);
                           }
                         }}
-                        className="text-green-600 hover:text-green-900 mr-4"
+                        className="text-green-600 hover:text-green-900"
                         title="Mở khóa tài khoản"
                       >
                         <LockOpenIcon className="w-5 h-5" />
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDeleteLecturer(lecturer.id)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Xóa"
-                    >
-                      <TrashIcon className="w-5 h-5" />
-                    </button>
                   </td>
                 </tr>
               ))}

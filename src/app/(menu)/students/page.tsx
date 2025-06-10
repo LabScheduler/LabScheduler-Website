@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
-import { PlusIcon, PencilIcon, TrashIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/outline";
+import { PlusIcon, PencilIcon, LockClosedIcon, LockOpenIcon } from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
@@ -77,7 +77,7 @@ export default function StudentsPage() {
   });
   const [successStudent, setSuccessStudent] = useState<Student | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<'add' | 'edit' | 'lock' | 'unlock' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'lock' | 'unlock' | null>(null);
 
   // Fetch students data
   useEffect(() => {
@@ -279,29 +279,6 @@ export default function StudentsPage() {
     }
   };
 
-  const handleDeleteStudent = async (studentId: number) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa sinh viên này?")) {
-      try {
-        const response = await UserService.deleteUser(studentId);
-        if (response.success) {
-          // Update UI after successful deletion
-          setStudents(prev => prev.filter(student => student.id !== studentId));
-          // Show success message
-          const deletedStudent = students.find(s => s.id === studentId);
-          if (deletedStudent) {
-            setSuccessStudent(deletedStudent);
-            setActionType('delete');
-            setIsSuccessDialogOpen(true);
-          }
-        } else {
-          setError(response.message || 'Failed to delete student');
-        }
-      } catch (err) {
-        setError('Lỗi xoá sinh viên: ' + (err instanceof Error ? err.message : String(err)));
-      }
-    }
-  };
-
   const handleLockAccount = async (studentId: number) => {
     try {
       const response = await UserService.lockUserAccount(studentId);
@@ -400,8 +377,7 @@ export default function StudentsPage() {
             actionType === 'add' ? "Thêm sinh viên thành công!" :
             actionType === 'edit' ? "Cập nhật sinh viên thành công!" :
             actionType === 'lock' ? "Khóa tài khoản sinh viên thành công!" :
-            actionType === 'unlock' ? "Mở khóa tài khoản sinh viên thành công!" :
-            "Xóa sinh viên thành công!"
+            "Mở khóa tài khoản sinh viên thành công!"
           }
           details={{
             "Mã SV": successStudent.code,
@@ -552,7 +528,7 @@ export default function StudentsPage() {
                             handleLockAccount(student.id);
                           }
                         }}
-                        className="text-yellow-600 hover:text-yellow-900 mr-4"
+                        className="text-yellow-600 hover:text-yellow-900"
                         title="Khóa tài khoản"
                       >
                         <LockClosedIcon className="w-5 h-5" />
@@ -564,19 +540,12 @@ export default function StudentsPage() {
                             handleUnlockAccount(student.id);
                           }
                         }}
-                        className="text-green-600 hover:text-green-900 mr-4"
+                        className="text-green-600 hover:text-green-900"
                         title="Mở khóa tài khoản"
                       >
                         <LockOpenIcon className="w-5 h-5" />
                       </button>
                     )}
-                    <button
-                      onClick={() => handleDeleteStudent(student.id)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Xóa"
-                    >
-                      <TrashIcon className="w-5 h-5" />
-                    </button>
                   </td>
                 </tr>
               ))}
