@@ -46,7 +46,7 @@ export default function SubjectsPage() {
   });
   const [successSubject, setSuccessSubject] = useState<Subject | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | 'error' | 'delete_error' | null>(null);
 
   useEffect(() => {
     const fetchSubjects = async () => {
@@ -170,10 +170,22 @@ export default function SubjectsPage() {
         setIsSuccessDialogOpen(true);
         setIsAddModalOpen(false);
       } else {
-        setError(response.message || 'Có lỗi khi tạo môn học');
+        // Show error notification for duplicate subject code
+        setSuccessSubject({
+          ...newSubject,
+          id: 0
+        });
+        setActionType('error');
+        setIsSuccessDialogOpen(true);
       }
     } catch (err) {
-      setError('Có lỗi khi tạo môn học: ' + (err instanceof Error ? err.message : String(err)));
+      // Show error notification for duplicate subject code
+      setSuccessSubject({
+        ...newSubject,
+        id: 0
+      });
+      setActionType('error');
+      setIsSuccessDialogOpen(true);
     }
   };
 
@@ -211,20 +223,29 @@ export default function SubjectsPage() {
   const handleDeleteSubject = async (subjectId: number) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa môn học này?")) {
       try {
+        const subjectToDelete = subjects.find(s => s.id === subjectId);
         const response = await SubjectService.deleteSubject(subjectId);
         if (response.success) {
-          const deletedSubject = subjects.find(s => s.id === subjectId);
           setSubjects(prev => prev.filter(subject => subject.id !== subjectId));
-          if (deletedSubject) {
-            setSuccessSubject(deletedSubject);
+          if (subjectToDelete) {
+            setSuccessSubject(subjectToDelete);
             setActionType('delete');
             setIsSuccessDialogOpen(true);
           }
         } else {
-          setError(response.message || 'Có lỗi khi xóa môn học');
+          if (subjectToDelete) {
+            setSuccessSubject(subjectToDelete);
+            setActionType('delete_error');
+            setIsSuccessDialogOpen(true);
+          }
         }
       } catch (err) {
-        setError('Có lỗi khi xóa môn học: ' + (err instanceof Error ? err.message : String(err)));
+        const subjectToDelete = subjects.find(s => s.id === subjectId);
+        if (subjectToDelete) {
+          setSuccessSubject(subjectToDelete);
+          setActionType('delete_error');
+          setIsSuccessDialogOpen(true);
+        }
       }
     }
   };
@@ -274,17 +295,30 @@ export default function SubjectsPage() {
           title={
             actionType === 'add' ? "Thêm môn học thành công!" :
             actionType === 'edit' ? "Cập nhật môn học thành công!" :
+            actionType === 'error' ? "Không thể thêm môn học!" :
+            actionType === 'delete_error' ? "Không thể xóa môn học!" :
             "Xóa môn học thành công!"
           }
-          details={{
-            "Mã môn học": successSubject.code,
-            "Tên môn học": successSubject.name,
-            "Số tín chỉ": `${successSubject.totalCredits} tín chỉ`,
-            "Số tiết lý thuyết": `${successSubject.totalTheoryPeriods} tiết`,
-            "Số tiết thực hành": `${successSubject.totalPracticePeriods} tiết`,
-            "Số tiết bài tập": `${successSubject.totalExercisePeriods} tiết`,
-            "Số tiết tự học": `${successSubject.totalSelfStudyPeriods} tiết`
-          }}
+          type={
+            actionType === 'add' || actionType === 'edit' || actionType === 'delete' 
+              ? 'success' 
+              : 'warning'
+          }
+          details={
+            actionType === 'error' ? {
+              "Thông báo": "Không thể thêm môn học vì trùng mã môn học!",
+            } : actionType === 'delete_error' ? {
+              "Thông báo": "Không thể xóa môn học này vì đang được sử dụng!",
+            } : {
+              "Mã môn học": successSubject.code,
+              "Tên môn học": successSubject.name,
+              "Số tín chỉ": `${successSubject.totalCredits} tín chỉ`,
+              "Số tiết lý thuyết": `${successSubject.totalTheoryPeriods} tiết`,
+              "Số tiết thực hành": `${successSubject.totalPracticePeriods} tiết`,
+              "Số tiết bài tập": `${successSubject.totalExercisePeriods} tiết`,
+              "Số tiết tự học": `${successSubject.totalSelfStudyPeriods} tiết`
+            }
+          }
         />
       )}
 

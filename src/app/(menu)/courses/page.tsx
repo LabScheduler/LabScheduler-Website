@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useMemo, useEffect, Suspense } from "react";
-import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { 
+  PlusIcon, 
+  PencilIcon, 
+  TrashIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  ExclamationTriangleIcon 
+} from "@heroicons/react/24/outline";
 import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/hooks/use-pagination";
 import { FilterPanel } from "@/components/ui/filter-panel";
@@ -65,7 +72,7 @@ export default function CoursesPage() {
   // Success notification states
   const [successCourse, setSuccessCourse] = useState<Course | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
-  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'add' | 'edit' | 'delete' | 'error' | 'delete_error' | null>(null);
 
   // Filter states
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -343,6 +350,19 @@ export default function CoursesPage() {
         startWeekId
       };
 
+      // Check if course exists
+      const checkResponse = await CourseService.checkCourseExist(payload);
+      if (checkResponse.data) {
+        // Course exists, show error notification using NotificationDialog
+        const existingCourse = mapCourseResponseToCourse(checkResponse.data);
+        console.log(existingCourse);
+        setSuccessCourse(existingCourse);
+        setActionType('error');
+        setIsSuccessDialogOpen(true);
+        return;
+      }
+
+      // Course doesn't exist, proceed with creation
       const response = await CourseService.createCourse(payload);
 
       if (response.success) {
@@ -352,7 +372,7 @@ export default function CoursesPage() {
           setSuccessCourse(newCourse);
           setActionType('add');
           setIsSuccessDialogOpen(true);
-    setIsAddModalOpen(false);
+          setIsAddModalOpen(false);
           resetFormState();
           resetAllSelections();
         }
@@ -360,7 +380,7 @@ export default function CoursesPage() {
         setError(response.message || 'Có lỗi khi tạo học phần');
       }
     } catch (err) {
-      setError("Học phần này đã tồn tại hoặc đã có lỗi xảy ra, vui lòng thử lại sau.");
+      setError("Có lỗi xảy ra, vui lòng thử lại sau.");
     }
   };
 
@@ -385,10 +405,19 @@ export default function CoursesPage() {
             setIsSuccessDialogOpen(true);
           }
         } else {
-          setError(response.message || 'Có lỗi khi xóa học phần');
+          if (courseToDelete) {
+            setSuccessCourse(courseToDelete);
+            setActionType('delete_error');
+            setIsSuccessDialogOpen(true);
+          }
         }
       } catch (err) {
-        setError('Lỗi khi xóa học phần: ' + (err instanceof Error ? err.message : String(err)));
+        const courseToDelete = courses.find(c => c.id === courseId);
+        if (courseToDelete) {
+          setSuccessCourse(courseToDelete);
+          setActionType('delete_error');
+          setIsSuccessDialogOpen(true);
+        }
       }
     }
   };
@@ -567,16 +596,40 @@ export default function CoursesPage() {
           title={
             actionType === 'add' ? "Thêm học phần thành công!" :
             actionType === 'edit' ? "Cập nhật học phần thành công!" :
+            actionType === 'error' ? "Học phần đã tồn tại!" :
+            actionType === 'delete_error' ? "Không thể xóa học phần!" :
             "Xóa học phần thành công!"
           }
-          details={{
-            "Học phần": successCourse.subject,
-            "Kỳ học": successCourse.semester,
-            "Nhóm": successCourse.groupNumber.toString(),
-            "Lớp": successCourse.class,
-            "Giảng viên": successCourse.lecturers.join(", "),
-            "Số sinh viên tối đa": `${successCourse.maxStudents} sinh viên`
-          }}
+          type={
+            actionType === 'add' || actionType === 'edit' || actionType === 'delete' 
+              ? 'success' 
+              : 'warning'
+          }
+          details={
+            actionType === 'error' ? {
+              "Thông báo": "Không thể tạo vì học phần đã tồn tại!",
+              "Học phần": successCourse.subject,
+              "Kỳ học": successCourse.semester,
+              "Nhóm": successCourse.groupNumber.toString(),
+              "Lớp": successCourse.class,
+              "Giảng viên": successCourse.lecturers.join(", "),
+              "Số sinh viên tối đa": `${successCourse.maxStudents} sinh viên`
+            } : actionType === 'delete_error' ? {
+              "Thông báo": "Không thể xóa học phần này vì đang được sử dụng!",
+              "Học phần": successCourse.subject,
+              "Kỳ học": successCourse.semester,
+              "Nhóm": successCourse.groupNumber.toString(),
+              "Lớp": successCourse.class,
+              "Giảng viên": successCourse.lecturers.join(", ")
+            } : {
+              "Học phần": successCourse.subject,
+              "Kỳ học": successCourse.semester,
+              "Nhóm": successCourse.groupNumber.toString(),
+              "Lớp": successCourse.class,
+              "Giảng viên": successCourse.lecturers.join(", "),
+              "Số sinh viên tối đa": `${successCourse.maxStudents} sinh viên`
+            }
+          }
         />
       )}
 
@@ -1309,7 +1362,7 @@ export default function CoursesPage() {
                     name="code"
                         required
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2"
-                    placeholder="VD: 20231"
+                    placeholder="VD: 2024-1"
                       />
                     </div>
                 <div className="mb-4">

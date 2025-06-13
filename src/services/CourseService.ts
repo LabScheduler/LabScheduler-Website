@@ -88,6 +88,22 @@ class CourseService{
         }
         return response.data;
     }
+    async checkCourseExist(
+            payload: {
+            subjectId: number,
+            classId: number,
+            lecturersIds: number[],
+            semesterId: number,
+            totalStudents: number,
+            startWeekId: number,
+        }
+    ): Promise<DataResponse<CourseResponse | null>> {
+        const response = await axiosConfig.post("/course/exists", payload);
+        if (!response.data.success) {
+            throw new Error(response.data.message);
+        }
+        return response.data; //return CourseResponse if exists, null if not
+    }
 }
 
 export default new CourseService();

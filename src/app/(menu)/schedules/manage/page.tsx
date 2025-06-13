@@ -1019,7 +1019,7 @@ export default function ScheduleManagementPage() {
                 selectedSemesterWeek.id,
                 dayOfWeek,
                 startPeriod,
-                totalPeriod
+                totalPeriod,
               );
             }}>
               <div className="grid grid-cols-2 gap-4">
@@ -1058,7 +1058,7 @@ export default function ScheduleManagementPage() {
                     <option value="">Chọn nhóm thực hành</option>
                     {courseSections.map(section => (
                       <option key={section.id} value={section.id}>
-                        Nhóm {section.sectionNumber} ({section.totalStudentsInSection} sinh viên)
+                        Nhóm {section.sectionNumber} ({section.maxStudentsInSection} sinh viên)
                       </option>
                     ))}
                   </select>
